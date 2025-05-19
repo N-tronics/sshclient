@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Types.hpp>
+#include <TypeDefs.hpp>
 
 namespace crypto {
 
@@ -8,13 +8,13 @@ namespace ecdh {
     
     typedef struct Curve {
         num_t a, b, p;
-        Curve(num_t a, num_t b, num_t p) : a(a), b(b), c(c) {}
+        Curve(num_t a, num_t b, num_t p) : a(a), b(b), p(p) {}
     } Curve;
 
     class Point {
     public:
         num_t x, y;
-        Cruve c;
+        Curve c;
         Point(num_t x, num_t y, Curve c) : x(x) , y(y), c(c) {}
         Point(Curve c) : c(c) {}
 
