@@ -1,4 +1,4 @@
-#include <crypto/Crypto.hpp>
+#include <Crypto.hpp>
 #include <TypeDefs.hpp>
 #include <openssl/evp.h>
 #include <openssl/sha.h>

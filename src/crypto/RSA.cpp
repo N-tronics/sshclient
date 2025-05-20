@@ -1,4 +1,4 @@
-#include <crypto/Crypto.hpp>
+#include <Crypto.hpp>
 #include <boost/integer/common_factor_rt.hpp>
 #include <boost/integer/mod_inverse.hpp>
 #include <MathFns.hpp>

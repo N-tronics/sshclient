@@ -1,4 +1,4 @@
-#include <crypto/Crypto.hpp>
+#include <Crypto.hpp>
 #include <TypeDefs.hpp>
 
 namespace crypto {

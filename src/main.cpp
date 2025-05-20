@@ -2,6 +2,7 @@
 #include <string>
 
 #include <crypto/SHA256.hpp>
+#include <crypto/Random.hpp>
 #include <TypeDefs.hpp>
 
 void coutByteAsHex(Byte b) {
@@ -16,4 +17,6 @@ int main() {
         coutByteAsHex(b);
     }
     std::cout << std::endl;
+
+    std::cout << crypto::Random::generateNum(256) << std::endl;
 }

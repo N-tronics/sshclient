@@ -1,6 +1,6 @@
 #include <SSHClient.hpp>
 #include <SSHPacket.hpp>
-#include <crypto/Crypto.hpp>
+#include <Crypto.hpp>
 #include <Types.hpp>
 #include <MathFns.hpp>
 #include <string>

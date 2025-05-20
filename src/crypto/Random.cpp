@@ -1,9 +1,9 @@
-#include <crypto/Crypto.hpp>
+#include <Crypto.hpp>
 #include <boost/multiprecision/miller_rabin.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <random>
-#include <Types.hpp>
+#include <TypeDefs.hpp>
 
 namespace crypto {
 
@@ -23,7 +23,7 @@ Bytes Random::generateBytes(size_t count) {
     return result;
 }
 
-num_t generateNum(size_t bitSize) {
+num_t Random::generateNum(size_t bitSize) {
     boost::random::mt19937 gen{std::random_device{}()};
     boost::random::uniform_int_distribution<num_t> distrib(
         boost::multiprecision::pow(num_t(2), bitSize - 1),
