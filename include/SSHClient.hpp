@@ -2,8 +2,8 @@
 
 #include <NetworkClient.hpp>
 #include <SSHPacket.hpp>
-#include <crypto/Crypto.hpp>
-#include <Types.hpp>
+#include <Crypto.hpp>
+#include <TypeDefs.hpp>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -11,6 +11,8 @@
 namespace ssh {
 
 constexpr uint32_t SSH_DEFAULT_PORT = 22;
+// SSH protocol version
+const std::string SSH_PROTOCOL_VERSION = "SSH-2.0-CustomSSH_0.1";
 
 // SSH message types (based on RFC 4253)
 enum class MsgType : Byte {
@@ -49,9 +51,6 @@ enum class MsgType : Byte {
     CHANNEL_SUCCESS = 99,
     CHANNEL_FAILURE = 100
 };
-
-// SSH protocol version
-const std::string SSH_PROTOCOL_VERSION = "SSH-2.0-CustomSSH_0.1";
 
 // SSH key exchange algorithms
 enum class KexAlgorithm {
@@ -102,8 +101,8 @@ public:
         kexAlgo(KexAlgorithm::ELLIPTIC_CURVE_DIFFIE_HELLMAN_GROUP14_SHA256),
         encryptionAlgo(EncryptionAlgorithm::AES256_CBC),
         macAlgo(MACAlgorithm::HMAC_SHA256) {}
-
-    ErrorCode connectTo(const std::string& hostname, uint16_t port = SSH_DEFAULT_PORT, unsigned int timeout_ms = 5000) override;
+    
+    ErrorCode connectTo(const std::string& hostname, uint16_t port = SSH_DEFAULT_PORT, uint32_t timeout_ms = 5000) override;
     ErrorCode recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms = 5000);
     ErrorCode sendSSHPacket(SSHPacket& packet);
 };

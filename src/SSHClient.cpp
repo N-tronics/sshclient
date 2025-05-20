@@ -1,7 +1,7 @@
 #include <SSHClient.hpp>
 #include <SSHPacket.hpp>
 #include <Crypto.hpp>
-#include <Types.hpp>
+#include <TypeDefs.hpp>
 #include <MathFns.hpp>
 #include <string>
 #include <iostream>
@@ -15,6 +15,7 @@
 #include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <NetworkClient.hpp>
 
 namespace ssh {
 
@@ -66,7 +67,7 @@ ErrorCode SSHClient::performKEX() {
 
     std::cout << "Waiting for server's KEXINIT" << std::endl;
     SSHPacket serverKexInitPacket;
-    result = NetworkClient::recvTCPPacket(serverKexInitPacket, SSH_MAX_PACKET_SIZE);
+    result = NetworkClient::recvTCPPacket(serverKexInitPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to recv KEXINIT: " << static_cast<int>(result) << std::endl;
     }
@@ -101,7 +102,7 @@ ErrorCode SSHClient::performKEX() {
 
     std::cout << "Waiting for server's KEX_DH_REPLY" << std::endl;
     SSHPacket dhReplyPacket;
-    result = NetworkClient::recvTCPPacket(dhReplyPacket, SSH_MAX_PACKET_SIZE);
+    result = NetworkClient::recvTCPPacket(dhReplyPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to recv KEX_DH_INIT: " << static_cast<int>(result) << std::endl;
     }
@@ -118,7 +119,7 @@ ErrorCode SSHClient::performKEX() {
     //serverHostKey.assign(replyPayload.begin() + offset, replyPayload.end());
     //Bytes serverPublicKey(replyPayload.begin(), replyPayload.end());
     // RSA server public key
-    crypto::ecdh::Point serverPublicKeyPoint;
+    crypto::ecdh::Point serverPublicKeyPoint(ecdh->getCurve());
     Bytes serverExchangeHash;
 
     std::cout << "Computing shared secret..." << std::endl;
@@ -152,7 +153,7 @@ ErrorCode SSHClient::performKEX() {
 
     std::cout << "Waiting for server's NEWKEYS..." << std::endl;
     SSHPacket serverNewKeysPacket;
-    result = NetworkClient::recvTCPPacket(serverNewKeysPacket, SSH_MAX_PACKET_SIZE);
+    result = NetworkClient::recvTCPPacket(serverNewKeysPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to receive NEWKEYS: " << static_cast<int>(result) << std::endl;
         NetworkClient::disconnect();
@@ -184,7 +185,7 @@ Bytes SSHClient::computeExchangeHash(const Bytes& clientPublicKey, const Bytes& 
     inputs.insert(inputs.end(), serverPublicKey.begin(), serverPublicKey.end());
     inputs.insert(inputs.end(), sharedSecretKey.begin(), sharedSecretKey.end());
 
-    return crypto::SHA256::compute(inputs);
+    return crypto::SHA256::computeHash(inputs);
 }
 
 void SSHClient::deriveKeys(const Bytes& sharedSecret, const Bytes& exchangeHash) {
@@ -212,14 +213,14 @@ Bytes SSHClient::deriveKeyData(const Bytes& sharedSecret, const Bytes& exchangeH
     input.push_back(static_cast<Byte>(purpose));
     input.insert(input.end(), sessionId.begin(), sessionId.end());
 
-    Bytes result = crypto::SHA256::compute(input);
+    Bytes result = crypto::SHA256::computeHash(input);
     while (result.size() < keySize) {
         input.clear();
         input.insert(input.end(), sharedSecret.begin(), sharedSecret.end());
         input.insert(input.end(), exchangeHash.begin(), exchangeHash.end());
         input.insert(input.end(), result.begin(), result.end());
 
-        Bytes additionalData = crypto::SHA256::compute(input);
+        Bytes additionalData = crypto::SHA256::computeHash(input);
         result.insert(result.end(), additionalData.begin(), additionalData.end());
     }
     result.resize(keySize);
@@ -278,7 +279,7 @@ Bytes SSHClient::computeMAC(const Bytes& data, bool sending) const {
     }
 }
 
-ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, unsigned int timeout_ms) {
+ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms) {
     ErrorCode result = NetworkClient::connectTo(_hostName, _port, timeout_ms);
     if (result != ErrorCode::SUCCESS)
         return result;
@@ -332,12 +333,11 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uns
 
 ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
     if (!encryptionEnabled)
-        return NetworkClient::recvTCPPacket(packet, SSH_MAX_PACKET_SIZE, timeout_ms);
+        return NetworkClient::recvTCPPacket(packet, timeout_ms); // TODO: Check packet sizes
 
-    Byte encryptedLengthBlock[crypto::AES256::BLOCK_SIZE];
-    if (!recvBytes(encryptedLengthBlock, sizeof(encryptedLengthBlock), timeout_ms))
+    Bytes encryptedLengthBytes(crypto::AES256::BLOCK_SIZE);
+    if (!recvBytes(encryptedLengthBytes, encryptedLengthBytes.size(), timeout_ms))
         return ErrorCode::TIMEOUT;
-    Bytes encryptedLengthBytes(encryptedLengthBlock, encryptedLengthBlock + sizeof(encryptedLengthBlock));
 
     Bytes packetLengthBytes = decryptBytes(encryptedLengthBytes);
     uint32_t packetLength =
@@ -346,7 +346,7 @@ ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
         (static_cast<uint32_t>(packetLengthBytes[2]) <<  8) |
          static_cast<uint32_t>(packetLengthBytes[3]);
 
-    if (packetLength > SSH_MAX_PACKET_SIZE)
+    if (packetLength > SSHPacket::MAX_SIZE)
         return ErrorCode::PROTOCOL_ERROR;
 
     // Calculate remaining data to read (excluding the first block we already read)
@@ -354,7 +354,7 @@ ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
     remainingEncryptedSize += crypto::HMACSHA256::DIGEST_SIZE; // Add MAC size
     
     Bytes packetData(remainingEncryptedSize);
-    if (!recvBytes(packetData.data(), packetData.size(), timeout_ms))
+    if (!recvBytes(packetData, packetData.size(), timeout_ms))
         return ErrorCode::TIMEOUT;
     
     Bytes mac(packetData.end() - crypto::HMACSHA256::DIGEST_SIZE, packetData.end());

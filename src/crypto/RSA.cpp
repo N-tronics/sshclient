@@ -7,7 +7,7 @@ namespace crypto {
 
 namespace rsa {
 
-std::ostream& operator<<(std::ostream& os, const Key& key) {
+std::ostream& operator<<(std::ostream& os, const RSAKey& key) {
     os << "(" << key.exp << ", " << key.prime << ")";
     return os;
 }
@@ -25,27 +25,27 @@ void RSA::generateKeyPair(size_t keySize) {
     privateExp = boost::integer::mod_inverse(publicExp, phi);
 }
     
-Key RSA::getPublicKey() const {
-    return Key(publicExp, prime);
+RSAKey RSA::getPublicKey() const {
+    return RSAKey(publicExp, prime);
 }
 
-Key RSA::getPrivateKey() const {
-    return Key(privateExp, prime);
+RSAKey RSA::getPrivateKey() const {
+    return RSAKey(privateExp, prime);
 }
 
-Bytes RSA::encryptBytes(const Bytes& text, const Key& key) {
+Bytes RSA::encryptBytes(const Bytes& text, const RSAKey& key) {
     return numToBytes(powMod(bytesToNum(text), key.exp, key.prime));
 }
 
-Bytes RSA::decryptBytes(const Bytes& cipher, const Key& key) {
+Bytes RSA::decryptBytes(const Bytes& cipher, const RSAKey& key) {
     return numToBytes(powMod(bytesToNum(cipher), key.exp, key.prime));
 }
 
 Bytes RSA::signBytes(const Bytes& data) const {
-    return encryptBytes(data, Key(privateExp, prime));
+    return encryptBytes(data, RSAKey(privateExp, prime));
 }
 
-bool RSA::verifySignature(const Bytes& hash, const Bytes& signature, const Key& pubKey) const {
+bool RSA::verifySignature(const Bytes& hash, const Bytes& signature, const RSAKey& pubKey) const {
     Bytes expectedHash = decryptBytes(signature, pubKey);
     return std::equal(expectedHash.begin(), expectedHash.end(), hash.begin(), hash.end());
 }

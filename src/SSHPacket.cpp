@@ -13,20 +13,20 @@ void SSHPacket::setPaddingLength(Byte length) {
     padding.resize(paddingLength);
 }
 Byte SSHPacket::getPaddingLength() const { return paddingLength; }
-uint32_t SSHPacket::getSize() const override { return 4 + 1 + 1 + payload.size() + padding.size(); } // packetLength + paddingLength + msgType + payload + padding
+uint32_t SSHPacket::getSize() const { return 4 + 1 + 1 + payload.size() + padding.size(); } // packetLength + paddingLength + msgType + payload + padding
 
 void SSHPacket::generatePadding() {
     size_t contentSize = 1 + payload.size();
     size_t blockSize = crypto::AES256::BLOCK_SIZE;
 
     size_t minPaddingLength = 4;
-    size_t remainder = (SSH_MAX_PACKET_HEADER_SIZE + contentSize + minPaddingLength) % blockSize;
+    size_t remainder = (SSHPacket::HEADER_SIZE + contentSize + minPaddingLength) % blockSize;
     paddingLength = static_cast<Byte>(remainder == 0 ? minPaddingLength : minPaddingLength + blockSize - remainder);
 
     crypto::Random::generateBytes(padding, paddingLength);    
 }
 
-Bytes& SSHPacket::serialize() const override {
+Bytes SSHPacket::serialize() const {
     uint32_t packetLength = 1 + 1 + payload.size() + padding.size();
 
     Bytes result(packetLength);
@@ -45,17 +45,17 @@ Bytes& SSHPacket::serialize() const override {
     return result;
 }
 
-void SSHPacket::deserialize(const Bytes& data) override {
+void SSHPacket::deserialize(const Bytes& data) {
     if (data.size() < 5)
         throw std::runtime_error("Packet data too small");
 
     uint32_t packetLength =
         (static_cast<uint32_t>(data[0]) << 24) |
         (static_cast<uint32_t>(data[1]) << 16) |
-        (static_cast<uint32_t>(data[2]) << 08) |
+        (static_cast<uint32_t>(data[2]) <<  8) |
          static_cast<uint32_t>(data[3]);
 
-    if (packetLength > SSH_MAX_PACKET_SIZE)
+    if (packetLength > SSHPacket::MAX_SIZE)
         throw std::runtime_error("Packet size too big");
     if (packetLength + 4 > data.size())
         throw std::runtime_error("Incomplete packet data");

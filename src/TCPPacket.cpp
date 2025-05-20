@@ -17,7 +17,7 @@ Bytes TCPPacket::serialize() const {
     return data;
 }
 
-void deserialize(const Bytes& data) {
+void TCPPacket::deserialize(const Bytes& data) {
     if (data.size() <= 4)
         throw std::runtime_error("Packet data too small");
     uint32_t packetLength = 
@@ -33,6 +33,6 @@ void deserialize(const Bytes& data) {
     payload.insert(payload.begin(), data.begin() + 4, data.begin() + 4 + packetLength);
 }
     
-uint32_t getSize() const {
+uint32_t TCPPacket::getSize() const {
     return 4 + payload.size();
 }

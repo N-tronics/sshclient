@@ -2,6 +2,7 @@
 
 #include <TypeDefs.hpp>
 
+namespace crypto {
 // Simple AES-256 implementation (implementation omitted for brevity)
 // In a real implementation, this would be a proper AES-256 implementation
 class AES256 {
@@ -41,3 +42,5 @@ private:
     AES256 m_aes;
     Bytes m_iv;
 };
+
+} // namespace crypto

@@ -11,7 +11,7 @@ Bytes HMACSHA256::compute(const Bytes& key, const Bytes& data) {
     Bytes processedKey = key;
     if (processedKey.size() > BLOCK_SIZE) {
         // If key is longer than block size, hash it
-        processedKey = SHA256::compute(processedKey);
+        processedKey = SHA256::computeHash(processedKey);
     }
     if (processedKey.size() < BLOCK_SIZE) {
         // If key is shorter than block size, pad it with zeros
@@ -31,12 +31,12 @@ Bytes HMACSHA256::compute(const Bytes& key, const Bytes& data) {
     // Compute inner hash: SHA256(ipad || data)
     Bytes innerData = ipad;
     innerData.insert(innerData.end(), data.begin(), data.end());
-    Bytes innerHash = SHA256::compute(innerData);
+    Bytes innerHash = SHA256::computeHash(innerData);
     
     // Compute outer hash: SHA256(opad || innerHash)
     Bytes outerData = opad;
     outerData.insert(outerData.end(), innerHash.begin(), innerHash.end());
-    return SHA256::compute(outerData);
+    return SHA256::computeHash(outerData);
 }
 
 } // namespace crypto

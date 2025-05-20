@@ -13,10 +13,10 @@ Point Point::operator+(Point const &q) {
     if (x == q.x && y != q.y)
         return Point(x, y, c);
     if (x == q.x) {
-        s = ((3 * x * x + c.a) * modularInv(2 * y, c.p)) % c.p;
+        s = ((3 * x * x + c.a) * modularInverse(2 * y, c.p)) % c.p;
     }
     else
-        s = ((q.y - y) * modularInv(q.x - x, c.p)) % c.p;
+        s = ((q.y - y) * modularInverse(q.x - x, c.p)) % c.p;
     r.x = (s * s - x - q.x) % c.p;
     r.y = (s * (x - r.x) - y) % c.p;
 
@@ -36,11 +36,11 @@ std::ostream& operator<<(std::ostream& os, const Point& p) {
     return os;
 }
 
-Point getPointFromX(const num_t& x, const Curve& c) {
-    num_t ysqr = x * x * x + c.a * x + c.b;
-    num_t y = modularSqrt(ysqr, c.p);
-    return Point(x, y, c);
-}
+//Point getPointFromX(const num_t& x, const Curve& c) {
+//    num_t ysqr = x * x * x + c.a * x + c.b;
+//    num_t y = modularSqrt(ysqr, c.p);
+//    return Point(x, y, c);
+//}
 
 Curve brainpoolP256r1(
     num_t("0x7d5a0975fc2c3057eef67530417affe7fb8055c126dc5c6ce94a4b44f330b5d9"),
@@ -61,13 +61,7 @@ ECDH::ECDH(std::string c) {
 }
 
 void ECDH::generateKeys() {
-    Bytes privateKeyBytes = Random::generateBytes(16);
-    privateKey = 0;
-    for (int i = 0; i < 16; i++)
-        for (int j = 0; j < 8; j++)
-            if (privateKeyBytes[i] & (0x80 >> j))
-                boost::multiprecision::bit_set(privateKey, 256 - 8 * i - j);
-    
+    privateKey = Random::generatePrimeNum(128);
     publicKey = privateKey * generator;
 }
 

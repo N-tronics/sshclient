@@ -1,7 +1,11 @@
 #include <NetworkClient.hpp>
 
-ErrorCode NetworkClient::exchangeProtocolVersions() {
-    std::string protocolStr = protocol + "\r\n";
+bool success(ErrorCode e) {
+    return e == ErrorCode::SUCCESS;
+}
+
+ErrorCode NetworkClient::exchangeProtocols() {
+    std::string protocolStr = clientProtocol + "\r\n";
     size_t bytesSent = send(sockfd, protocolStr.c_str(), protocolStr.length(), 0);
     if (bytesSent < 0 | bytesSent < protocolStr.length())
         return ErrorCode::PROTOCOL_ERROR;
@@ -12,7 +16,7 @@ ErrorCode NetworkClient::exchangeProtocolVersions() {
     size_t bytesRead = 0, res;
     bool crlfFound = false;
     while (bytesRead < sizeof(buf) - 1 && !crlfFound) {
-        if ((res = recv(sockfd, buf + bytesRead, 1, 0) <= 0)
+        if ((res = recv(sockfd, buf + bytesRead, 1, 0)) <= 0)
             return ErrorCode::PROTOCOL_ERROR;
         bytesRead++;
 
@@ -27,7 +31,7 @@ ErrorCode NetworkClient::exchangeProtocolVersions() {
     return ErrorCode::SUCCESS;
 }
 
-bool NetworkClient::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) {
+bool NetworkClient::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const {
     size_t bytesRead = 0;
     bytes.reserve(length);
     while (bytesRead < length) {
@@ -45,15 +49,15 @@ bool NetworkClient::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) 
     return true;
 }
 
-ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms = 5000) {
+ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms) {
     int rv;
     struct addrinfo hints, *servInfo, *p;
 
     std::memset(&hints, 0, sizeof(hints));
-    hint.ai_family = AF_UNSPEC;
-    hitn.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
 
-    if ((rv = getaddrinfo(_hostName, _port), &hints, &servInfo)) != 0) {
+    if ((rv = getaddrinfo(_hostName.c_str(), std::to_string(_port).c_str(), &hints, &servInfo)) != 0) {
         std::cout << "getaddrinfo: " << gai_strerror(rv) << std::endl;
         return ErrorCode::CONNECTION_FAILED;
     }
@@ -63,8 +67,8 @@ ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port,
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
             continue;
         // set socket to be non-blocking
-        flags = fcntl(m_socket, F_GETFL, 0);
-        fcntl(m_socket, F_SETFL, flags | O_NONBLOCK);
+        flags = fcntl(sockfd, F_GETFL, 0);
+        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
         
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
@@ -77,7 +81,7 @@ ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port,
         return ErrorCode::CONNECTION_FAILED;
     }
     // Set socket back to blocking mode
-    fcntl(m_socket, F_SETFL, flags);
+    fcntl(sockfd, F_SETFL, flags);
     freeaddrinfo(servInfo);
 
     sockStatus = SocketStatus::CONNECTED;
@@ -116,7 +120,7 @@ ErrorCode NetworkClient::sendTCPPacket(const TCPPacket& packet) const {
     return ErrorCode::SUCCESS;
 }
 
-ErrorCode NetworkClient::recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms = 5000) const {
+ErrorCode NetworkClient::recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms) const {
     if (sockStatus != SocketStatus::CONNECTED)
         return ErrorCode::CONNECTION_FAILED;
     
@@ -134,8 +138,9 @@ ErrorCode NetworkClient::recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms = 
     
     Bytes packetData(4 + packetLength), packetPayload;
     packetData.insert(packetData.end(), lengthBuffer.begin(), lengthBuffer.end());
-    if (!recvBytes(packetData.data() + 4, packetLength, timeout_ms))
+    if (!recvBytes(packetPayload, packetLength, timeout_ms))
         return ErrorCode::TIMEOUT;
+    packetData.insert(packetData.end(), packetPayload.begin(), packetPayload.end());
 
     try {
         packet.deserialize(packetData);

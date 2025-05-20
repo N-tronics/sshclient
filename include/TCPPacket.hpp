@@ -6,7 +6,7 @@ class TCPPacket {
 protected:
     Bytes payload;
 public:
-    static const MAX_TCP_PACKET_LENGTH 30000;
+    static const uint32_t MAX_TCP_PACKET_SIZE = 30000;
     
     TCPPacket() = default;
     virtual ~TCPPacket() = default;

@@ -27,9 +27,7 @@ enum class ErrorCode : int {
     GENERIC_ERROR = 255
 };
 
-bool success(ErrorCode e) {
-    return e == ErrorCode::SUCCESS;
-}
+bool success(ErrorCode e);
 
 // Socket status
 enum class SocketStatus {
@@ -46,17 +44,17 @@ protected:
     uint16_t port;
     std::string hostName;
     std::string serverProtocol;
-    std::string protocol;
+    std::string clientProtocol;
 
     ErrorCode exchangeProtocols();
-    bool recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms);
+    bool recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const;
 public:
     static constexpr uint32_t MAX_PROTOCOL_LENGTH = 256;
     
     NetworkClient() : sockfd(-1), sockStatus(SocketStatus::DISCONNECTED) {}
     ~NetworkClient();
 
-    ErrorCode connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms = 5000);
+    virtual ErrorCode connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms = 5000);
     void disconnect();
 
     ErrorCode sendTCPPacket(const TCPPacket& packet) const;
