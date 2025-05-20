@@ -59,7 +59,7 @@ ErrorCode SSHClient::performKEX() {
     
     // Send packet
     std::cout << "Sending KEXINIT..." << std::endl;
-    ErrorCode result = NetworkClient::sendTCPPacket(kexInitPacket);
+    ErrorCode result = utils.sendTCPPacket(kexInitPacket);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to send KEXINIT: " << static_cast<int>(result) << std::endl;
         return result;
@@ -67,7 +67,7 @@ ErrorCode SSHClient::performKEX() {
 
     std::cout << "Waiting for server's KEXINIT" << std::endl;
     SSHPacket serverKexInitPacket;
-    result = NetworkClient::recvTCPPacket(serverKexInitPacket, SSHPacket::MAX_SIZE);
+    result = utils.recvTCPPacket(serverKexInitPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to recv KEXINIT: " << static_cast<int>(result) << std::endl;
     }
@@ -94,7 +94,7 @@ ErrorCode SSHClient::performKEX() {
     dhInitPacket.setPayload(dhInitPayload);
     
     std::cout << "Sending KEX_DH_INIT..." << std::endl;
-    result = NetworkClient::sendTCPPacket(dhInitPacket);
+    result = utils.sendTCPPacket(dhInitPacket);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to send KEX_DH_INIT: " << static_cast<int>(result) << std::endl;
         return result;
@@ -102,7 +102,7 @@ ErrorCode SSHClient::performKEX() {
 
     std::cout << "Waiting for server's KEX_DH_REPLY" << std::endl;
     SSHPacket dhReplyPacket;
-    result = NetworkClient::recvTCPPacket(dhReplyPacket, SSHPacket::MAX_SIZE);
+    result = utils.recvTCPPacket(dhReplyPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to recv KEX_DH_INIT: " << static_cast<int>(result) << std::endl;
     }
@@ -144,7 +144,7 @@ ErrorCode SSHClient::performKEX() {
     deriveKeys(numToBytes(sharedSecret), exchangeHash);
 
     std::cout << "Sending NEWKEYS..." << std::endl;
-    result = NetworkClient::sendTCPPacket(SSHPacket(static_cast<Byte>(MsgType::NEWKEYS)));
+    result = utils.sendTCPPacket(SSHPacket(static_cast<Byte>(MsgType::NEWKEYS)));
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to send NEWKEYS" << std::endl;
         NetworkClient::disconnect();
@@ -153,7 +153,7 @@ ErrorCode SSHClient::performKEX() {
 
     std::cout << "Waiting for server's NEWKEYS..." << std::endl;
     SSHPacket serverNewKeysPacket;
-    result = NetworkClient::recvTCPPacket(serverNewKeysPacket, SSHPacket::MAX_SIZE);
+    result = utils.recvTCPPacket(serverNewKeysPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to receive NEWKEYS: " << static_cast<int>(result) << std::endl;
         NetworkClient::disconnect();
@@ -333,10 +333,10 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uin
 
 ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
     if (!encryptionEnabled)
-        return NetworkClient::recvTCPPacket(packet, timeout_ms); // TODO: Check packet sizes
+        return utils.recvTCPPacket(packet, timeout_ms); // TODO: Check packet sizes
 
     Bytes encryptedLengthBytes(crypto::AES256::BLOCK_SIZE);
-    if (!recvBytes(encryptedLengthBytes, encryptedLengthBytes.size(), timeout_ms))
+    if (!utils.recvBytes(encryptedLengthBytes, encryptedLengthBytes.size(), timeout_ms))
         return ErrorCode::TIMEOUT;
 
     Bytes packetLengthBytes = decryptBytes(encryptedLengthBytes);
@@ -354,7 +354,7 @@ ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
     remainingEncryptedSize += crypto::HMACSHA256::DIGEST_SIZE; // Add MAC size
     
     Bytes packetData(remainingEncryptedSize);
-    if (!recvBytes(packetData, packetData.size(), timeout_ms))
+    if (!utils.recvBytes(packetData, packetData.size(), timeout_ms))
         return ErrorCode::TIMEOUT;
     
     Bytes mac(packetData.end() - crypto::HMACSHA256::DIGEST_SIZE, packetData.end());
@@ -381,7 +381,7 @@ ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
 
 ErrorCode SSHClient::sendSSHPacket(SSHPacket& packet) {
     if (!encryptionEnabled)
-        return NetworkClient::sendTCPPacket(packet);
+        return utils.sendTCPPacket(packet);
 
     std::cout << "Sending encrypted packet (type: " << static_cast<int>(packet.getMsgType()) << ")" << std::endl;
 

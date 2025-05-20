@@ -1,9 +1,5 @@
 #include <NetworkClient.hpp>
 
-bool success(ErrorCode e) {
-    return e == ErrorCode::SUCCESS;
-}
-
 ErrorCode NetworkClient::exchangeProtocols() {
     std::string protocolStr = clientProtocol + "\r\n";
     size_t bytesSent = send(sockfd, protocolStr.c_str(), protocolStr.length(), 0);
@@ -29,24 +25,6 @@ ErrorCode NetworkClient::exchangeProtocols() {
 
     serverProtocol = std::string(buf, bytesRead - 2);
     return ErrorCode::SUCCESS;
-}
-
-bool NetworkClient::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const {
-    size_t bytesRead = 0;
-    bytes.reserve(length);
-    while (bytesRead < length) {
-        struct pollfd pfd;
-        pfd.fd = sockfd;
-        pfd.events = POLLIN;
-        if (poll(&pfd, 1, timeout_ms) <= 0)
-            return false;
-
-        size_t res;
-        if (recv(sockfd, bytes.data() + bytesRead, length - bytesRead, 0) <= 0)
-            return false;
-        bytesRead += res;
-    }
-    return true;
 }
 
 ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms) {
@@ -87,9 +65,10 @@ ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port,
     sockStatus = SocketStatus::CONNECTED;
     hostName = _hostName;
     port = _port;
+    utils = NetUtils(sockfd);
 
     ErrorCode res = exchangeProtocols();
-    if (!success(res)) {
+    if (res != ErrorCode::SUCCESS) {
         disconnect();
         return res;
     }
@@ -105,50 +84,6 @@ void NetworkClient::disconnect() {
     sockStatus = SocketStatus::DISCONNECTED;
     hostName.clear();
     port = 0;
-}
-
-ErrorCode NetworkClient::sendTCPPacket(const TCPPacket& packet) const {
-    if (sockStatus != SocketStatus::CONNECTED)
-        return ErrorCode::CONNECTION_FAILED;
-
-    Bytes data = packet.serialize();
-
-    size_t bytesSent = send(sockfd, data.data(), data.size(), 0);
-    if (bytesSent < 0 || bytesSent != data.size())
-        return ErrorCode::PROTOCOL_ERROR;
-
-    return ErrorCode::SUCCESS;
-}
-
-ErrorCode NetworkClient::recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms) const {
-    if (sockStatus != SocketStatus::CONNECTED)
-        return ErrorCode::CONNECTION_FAILED;
-    
-    Bytes lengthBuffer;
-    if (!recvBytes(lengthBuffer, 4, timeout_ms))
-        return ErrorCode::TIMEOUT;
-
-    uint32_t packetLength = 
-        (lengthBuffer[0] << 24) |
-        (lengthBuffer[1] << 16) |
-        (lengthBuffer[2] <<  8) |
-         lengthBuffer[3];
-    if (packetLength > TCPPacket::MAX_TCP_PACKET_SIZE)
-        return ErrorCode::PROTOCOL_ERROR;
-    
-    Bytes packetData(4 + packetLength), packetPayload;
-    packetData.insert(packetData.end(), lengthBuffer.begin(), lengthBuffer.end());
-    if (!recvBytes(packetPayload, packetLength, timeout_ms))
-        return ErrorCode::TIMEOUT;
-    packetData.insert(packetData.end(), packetPayload.begin(), packetPayload.end());
-
-    try {
-        packet.deserialize(packetData);
-    } catch (const std::exception& e) {
-        return ErrorCode::PROTOCOL_ERROR;
-    }
-
-    return ErrorCode::SUCCESS;
 }
 
 SocketStatus NetworkClient::getStatus() const { return sockStatus; }
