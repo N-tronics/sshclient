@@ -38,9 +38,12 @@ enum class SocketStatus {
 class NetUtils {
     int sockfd;
 public:
+    static constexpr uint32_t MAX_PROTOCOL_LENGTH = 256;
+    
     NetUtils(int _sockfd) : sockfd(_sockfd) {}
     NetUtils() {}
     
+    void *get_in_addr(struct sockaddr *sa) const; 
     bool recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const;
     ErrorCode sendTCPPacket(const TCPPacket& packet) const;
     ErrorCode recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms = 5000) const;

@@ -23,18 +23,17 @@ protected:
     std::string hostName;
     std::string serverProtocol;
     std::string clientProtocol;
-    NetUtils utils;
 
     ErrorCode exchangeProtocols();
 public:
-    static constexpr uint32_t MAX_PROTOCOL_LENGTH = 256;
-    
+    NetUtils utils;
     NetworkClient() : sockfd(-1), sockStatus(SocketStatus::DISCONNECTED) {}
     ~NetworkClient();
 
     virtual ErrorCode connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms = 5000);
     void disconnect();
 
+    void setClientProtocol(const std::string& protocol);
     SocketStatus getStatus() const;
     uint16_t getPort() const;
     const std::string& getHostName() const;

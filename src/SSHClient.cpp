@@ -188,6 +188,11 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uin
     if (result != ErrorCode::SUCCESS)
         return result;
 
+    if (serverProtocol.substr(0, 4) != "SSH-") {
+        NetworkClient::disconnect();
+        return ErrorCode::PROTOCOL_ERROR;
+    }
+
     result = performKEX();
     if (result != ErrorCode::SUCCESS) {
         NetworkClient::disconnect();

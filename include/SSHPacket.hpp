@@ -21,10 +21,6 @@ public:
     Byte getMsgType() const;
     void setMsgType(Byte _msgType);
 
-    const Bytes& getPayload() const;
-    void setPayload(const Bytes& _payload);
-    void appendToPayload(const Bytes& data);
-
     void setPaddingLength(Byte length);
     Byte getPaddingLength() const;
 

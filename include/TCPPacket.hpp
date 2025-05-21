@@ -14,6 +14,10 @@ public:
     virtual Bytes serialize() const;
     virtual void deserialize(const Bytes& data);
 
+    const Bytes& getPayload() const;
+    void setPayload(const Bytes& _payload);
+    void appendToPayload(const Bytes& data);
+
     virtual uint32_t getSize() const;
 };
 

@@ -1,8 +1,15 @@
 #include <NetUtils.hpp>
+    
+void* NetUtils::get_in_addr(struct sockaddr *sa) const {
+    if (sa->sa_family == AF_INET)
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
 
 bool NetUtils::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const {
     size_t bytesRead = 0;
-    bytes.reserve(length);
+    Byte buf[length];
+    std::memset(buf, 0, sizeof(buf));
     while (bytesRead < length) {
         struct pollfd pfd;
         pfd.fd = sockfd;
@@ -11,10 +18,12 @@ bool NetUtils::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const
             return false;
 
         size_t res;
-        if (recv(sockfd, bytes.data() + bytesRead, length - bytesRead, 0) <= 0)
+        if ((res = recv(sockfd, buf + bytesRead, length - bytesRead, 0)) <= 0)
             return false;
         bytesRead += res;
     }
+    bytes.reserve(length);
+    bytes.insert(bytes.begin(), buf, buf + bytesRead);
     return true;
 }
 
@@ -41,10 +50,11 @@ ErrorCode NetUtils::recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms) const 
     if (packetLength > TCPPacket::MAX_TCP_PACKET_SIZE)
         return ErrorCode::PROTOCOL_ERROR;
     
-    Bytes packetData(4 + packetLength), packetPayload;
-    packetData.insert(packetData.end(), lengthBuffer.begin(), lengthBuffer.end());
-    if (!recvBytes(packetPayload, packetLength, timeout_ms))
+    Bytes packetData, packetPayload;
+    packetData.insert(packetData.begin(), lengthBuffer.begin(), lengthBuffer.end());
+    if (!recvBytes(packetPayload, packetLength - 4, timeout_ms)) {
         return ErrorCode::TIMEOUT;
+    }
     packetData.insert(packetData.end(), packetPayload.begin(), packetPayload.end());
 
     try {

@@ -4,10 +4,6 @@
 Byte SSHPacket::getMsgType() const { return msgType; }
 void SSHPacket::setMsgType(Byte _msgType) { msgType = _msgType; }
 
-const Bytes& SSHPacket::getPayload() const { return payload; }
-void SSHPacket::setPayload(const Bytes& _payload) { payload = _payload; }
-void SSHPacket::appendToPayload(const Bytes& data) { payload.insert(payload.end(), data.begin(), data.end()); }
-
 void SSHPacket::setPaddingLength(Byte length) {
     paddingLength = length;
     padding.resize(paddingLength);
