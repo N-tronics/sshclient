@@ -17,6 +17,8 @@ private:
     num_t privateExp;
     num_t prime;
 public:
+    RSA() {}
+    
     void generateKeyPair(size_t keySize = 256);
     RSAKey getPublicKey() const;
     RSAKey getPrivateKey() const;

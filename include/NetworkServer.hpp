@@ -25,7 +25,7 @@ public:
     using ClientHandler = std::function<void(ClientSession&)>;
 
     static constexpr uint32_t SERVER_BACKLOG = 20;
-private:
+protected:
     int sockfd;
     SocketStatus sockStatus;
     uint16_t port;
@@ -35,12 +35,12 @@ private:
     std::thread acceptThread;
     ClientHandler clientHandler;
     std::map<int, std::shared_ptr<ClientSession>> clientSessions;
-    NetUtils utils;
 
     void acceptLoop();
     void handleClient(int clientSocket);
     ErrorCode exchangeProtocols(ClientSession& session);
 public:
+    NetUtils utils;
     NetworkServer() : sockfd(-1), sockStatus(SocketStatus::DISCONNECTED), running(false) {}
     ~NetworkServer();
     

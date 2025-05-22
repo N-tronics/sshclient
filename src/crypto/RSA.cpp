@@ -19,7 +19,7 @@ void RSA::generateKeyPair(size_t keySize) {
     num_t phi = (p - 1) * (q - 1);
 
     do {
-    publicExp = Random::generateNum(keySize);
+        publicExp = Random::generateNum(keySize);
     } while (boost::math::gcd(publicExp, phi) != 1);
 
     privateExp = boost::integer::mod_inverse(publicExp, phi);

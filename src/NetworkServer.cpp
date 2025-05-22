@@ -46,16 +46,15 @@ void NetworkServer::handleClient(int clientSocket) {
     if (clientHandler)
         clientHandler(session);
     
-    std::cout << std::endl;
     session.disconnect();
-    clientSessions.erase(clientSocket);
+    clientSessions.erase(it);
 }
 
 ErrorCode NetworkServer::exchangeProtocols(ClientSession& session) {
     char buf[NetUtils::MAX_PROTOCOL_LENGTH];
     std::memset(buf, 0, sizeof(buf));
     int bytesRead;
-    if ((bytesRead = recv(session.getSocket(), buf, sizeof(buf) - 1, 0)) <= 0) {
+    if ((bytesRead = recv(*(session.getSockfd()), buf, sizeof(buf) - 1, 0)) <= 0) {
         return ErrorCode::PROTOCOL_ERROR;
     }
     std::string clientProtocol(buf);
@@ -67,7 +66,7 @@ ErrorCode NetworkServer::exchangeProtocols(ClientSession& session) {
     std::cout << "Recvd client protocol: '" << session.getClientProtocol() << "'" << std::endl;
 
     std::string protocolStr = serverProtocol + "\r\n";
-    size_t bytesSent = send(session.getSocket(), protocolStr.c_str(), protocolStr.length(), 0);
+    size_t bytesSent = send(*(session.getSockfd()), protocolStr.c_str(), protocolStr.length(), 0);
     if (bytesSent < 0 | bytesSent < protocolStr.length()) {
         return ErrorCode::PROTOCOL_ERROR;
     }
@@ -155,7 +154,7 @@ void NetworkServer::stop() {
     for (auto& session : clientSessions)
         session.second->disconnect();
     clientSessions.clear();
-
+    
     sockStatus = SocketStatus::DISCONNECTED;
     std::cout << "Server stopped." << std::endl;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SSHPacket.hpp>
+#include <NetUtils.hpp>
 #include <Crypto.hpp>
 #include <TypeDefs.hpp>
 #include <cstdint>
@@ -66,7 +67,7 @@ enum class MACAlgorithm {
     HMAC_SHA256
 };
 
-class SSHUtils {
+class SSHUtils : public NetUtils {
 public:
     KexAlgorithm kexAlgo;
     EncryptionAlgorithm encryptionAlgo;
@@ -81,6 +82,7 @@ public:
     std::unique_ptr<crypto::AES256CBC> aes;
 
     SSHUtils() {}
+    SSHUtils(const NetUtils& utils);
     
     Bytes computeExchangeHash(
         const Bytes& clientProtocol,
@@ -91,12 +93,15 @@ public:
         const Bytes& serverPublicKey,
         const Bytes& sharedSecretKey
     );
-    void deriveKeys(const Bytes& sharedSecret, const Bytes& exchangeHash);
+    void deriveKeys(const Bytes& sharedSecret, const Bytes& exchangeHash, std::string id);
     Bytes deriveKeyData(const Bytes& sharedSecret, const Bytes& exchangeHash, char purpose, size_t keySize);
 
     Bytes encryptBytes(const Bytes& data) const;
     Bytes decryptBytes(const Bytes& data) const;
     Bytes computeMAC(const Bytes& data, bool sending) const;
+    
+    ErrorCode recvSSHPacket(SSHPacket& packet, uint32_t timeout_ms = 5000) const;
+    ErrorCode sendSSHPacket(SSHPacket& packet) const;
 };
 
 } // namespace ssh

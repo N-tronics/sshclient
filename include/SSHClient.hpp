@@ -21,18 +21,15 @@ private:
     Bytes serverKexInit;
     Bytes sessionId;
 
-    SSHUtils sshUtils;
-    
     ErrorCode performKEX();
 public:
+    SSHUtils sshUtils;
     SSHClient() : 
         kexComplete(false),
         encryptionEnabled(false) 
     {}
     
     ErrorCode connectTo(const std::string& hostname, uint16_t port = SSH_DEFAULT_PORT, uint32_t timeout_ms = 5000) override;
-    ErrorCode recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms = 5000);
-    ErrorCode sendSSHPacket(SSHPacket& packet);
 };
 
 }; // namespace ssh

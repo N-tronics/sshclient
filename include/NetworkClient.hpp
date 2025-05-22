@@ -17,7 +17,7 @@
 
 class NetworkClient {
 protected:
-    int sockfd;
+    std::shared_ptr<int> sockfd;
     SocketStatus sockStatus;
     uint16_t port;
     std::string hostName;
@@ -27,7 +27,7 @@ protected:
     ErrorCode exchangeProtocols();
 public:
     NetUtils utils;
-    NetworkClient() : sockfd(-1), sockStatus(SocketStatus::DISCONNECTED) {}
+    NetworkClient() : sockfd(std::make_shared<int>(0)), sockStatus(SocketStatus::DISCONNECTED) {}
     ~NetworkClient();
 
     virtual ErrorCode connectTo(const std::string& _hostName, uint16_t _port, uint32_t timeout_ms = 5000);

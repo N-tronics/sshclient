@@ -18,14 +18,12 @@ void SSHPacket::generatePadding() {
     size_t minPaddingLength = 4;
     size_t remainder = (SSHPacket::HEADER_SIZE + contentSize + minPaddingLength) % blockSize;
     paddingLength = static_cast<Byte>(remainder == 0 ? minPaddingLength : minPaddingLength + blockSize - remainder);
-
     crypto::Random::generateBytes(padding, paddingLength);    
 }
 
 Bytes SSHPacket::serialize() const {
     uint32_t packetLength = 1 + 1 + payload.size() + padding.size();
-
-    Bytes result(packetLength);
+    Bytes result;
 
     result.push_back((packetLength >> 24) & 0xFF);
     result.push_back((packetLength >> 16) & 0xFF);
@@ -53,8 +51,10 @@ void SSHPacket::deserialize(const Bytes& data) {
 
     if (packetLength > SSHPacket::MAX_SIZE)
         throw std::runtime_error("Packet size too big");
-    if (packetLength + 4 > data.size())
+    if (packetLength + 4 > data.size()) {
+        std::cout << data.size() << std::endl;
         throw std::runtime_error("Incomplete packet data");
+    }
     
     Byte paddingLength = data[4];
     if (paddingLength > packetLength - 1) // TODO: Verifiy condition

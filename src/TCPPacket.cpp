@@ -8,7 +8,7 @@ void TCPPacket::appendToPayload(const Bytes& data) { payload.insert(payload.end(
 
 Bytes TCPPacket::serialize() const {
     Bytes data;
-    uint32_t packetLength = 4 + payload.size();
+    uint32_t packetLength = payload.size();
     data.reserve(packetLength);
 
     data.push_back((packetLength >> 24) & 0xFF);
@@ -33,8 +33,8 @@ void TCPPacket::deserialize(const Bytes& data) {
     if (data.size() < packetLength)
         throw std::runtime_error("Incomplete packet data");
 
-    payload.resize(packetLength);
-    payload.insert(payload.begin(), data.begin() + 4, data.begin() + packetLength);
+    payload.resize(packetLength + 4);
+    payload.insert(payload.begin(), data.begin() + 4, data.begin() + 4 + packetLength);
 }
     
 uint32_t TCPPacket::getSize() const {

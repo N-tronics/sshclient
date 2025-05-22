@@ -4,7 +4,7 @@ ErrorCode NetworkClient::exchangeProtocols() {
     
     std::string protocolStr = clientProtocol + "\r\n";
     std::cout << protocolStr << std::endl;
-    size_t bytesSent = send(sockfd, protocolStr.c_str(), protocolStr.length(), 0);
+    size_t bytesSent = send(*sockfd, protocolStr.c_str(), protocolStr.length(), 0);
     if (bytesSent < 0 | bytesSent < protocolStr.length())
         return ErrorCode::PROTOCOL_ERROR;
     std::cout << "Sent client protocol: '" << clientProtocol << "'" << std::endl;
@@ -13,7 +13,7 @@ ErrorCode NetworkClient::exchangeProtocols() {
     char buf[NetUtils::MAX_PROTOCOL_LENGTH];
     std::memset(buf, 0, sizeof(buf));
     int bytesRead;
-    if ((bytesRead = recv(sockfd, buf, sizeof(buf) - 1, 0)) <= 0) {
+    if ((bytesRead = recv(*sockfd, buf, sizeof(buf) - 1, 0)) <= 0) {
         return ErrorCode::PROTOCOL_ERROR;
     }
     std::string _serverProtocol(buf);
@@ -47,15 +47,15 @@ ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port,
     for (p = servInfo; p != NULL; p = p->ai_next) {
         inet_ntop(p->ai_family, utils.get_in_addr((struct sockaddr*)p->ai_addr), s, sizeof(s));
         std::cout << "Connecting to " << s << std::endl;
-        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+        if ((*sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
             continue;
         // set socket to be non-blocking TODO
         // flags = fcntl(sockfd, F_GETFL, 0);
         // fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
         
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+        if (connect(*sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             std::cout << "couldnt connect" << std::endl;
-            close(sockfd);
+            close(*sockfd);
             continue;
         }
         break;
@@ -71,7 +71,7 @@ ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port,
     sockStatus = SocketStatus::CONNECTED;
     hostName = _hostName;
     port = _port;
-    utils = NetUtils(sockfd);
+    utils.setSockfd(sockfd);
 
     ErrorCode res = exchangeProtocols();
     if (res != ErrorCode::SUCCESS) {
@@ -84,9 +84,9 @@ ErrorCode NetworkClient::connectTo(const std::string& _hostName, uint16_t _port,
 }
 
 void NetworkClient::disconnect() {
-    if (sockfd >= 0) {
-        close(sockfd);
-        sockfd = -1;
+    if (*sockfd >= 0) {
+        close(*sockfd);
+        *sockfd = -1;
     }
     sockStatus = SocketStatus::DISCONNECTED;
     hostName.clear();

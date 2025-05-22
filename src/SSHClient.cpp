@@ -56,6 +56,7 @@ ErrorCode SSHClient::performKEX() {
         kexInitPayload.push_back(0);
 
     kexInitPacket.setPayload(kexInitPayload);
+    kexInitPacket.generatePadding();
     
     // Send packet
     std::cout << "Sending KEXINIT..." << std::endl;
@@ -78,12 +79,13 @@ ErrorCode SSHClient::performKEX() {
     }
     std::cout << "Received server KEXINIT" << std::endl;
     
-    serverKexInit = serverKexInitPacket.serialize();
-    clientKexInit = kexInitPacket.serialize();
+    serverKexInit = serverKexInitPacket.getPayload();
+    clientKexInit = kexInitPacket.getPayload();
 
     std::cout << "Generating ECDH Key pair..." << std::endl;
     // ECDH
     std::unique_ptr<crypto::ecdh::ECDH> ecdh = std::make_unique<crypto::ecdh::ECDH>("brainpoolP256r1");
+    ecdh->generateKeys();
     
     SSHPacket dhInitPacket(static_cast<Byte>(MsgType::KEX_DH_INIT));
     Bytes dhInitPayload;
@@ -92,6 +94,7 @@ ErrorCode SSHClient::performKEX() {
     dhInitPayload.insert(dhInitPayload.end(), publicKeyX.begin(), publicKeyX.end());
     dhInitPayload.insert(dhInitPayload.end(), publicKeyY.begin(), publicKeyY.end());
     dhInitPacket.setPayload(dhInitPayload);
+    dhInitPacket.generatePadding();
     
     std::cout << "Sending KEX_DH_INIT..." << std::endl;
     result = utils.sendTCPPacket(dhInitPacket);
@@ -104,7 +107,7 @@ ErrorCode SSHClient::performKEX() {
     SSHPacket dhReplyPacket;
     result = utils.recvTCPPacket(dhReplyPacket, SSHPacket::MAX_SIZE);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to recv KEX_DH_INIT: " << static_cast<int>(result) << std::endl;
+        std::cout << "Failed to recv KEX_DH_REPLY: " << static_cast<int>(result) << std::endl;
     }
 
     if (dhReplyPacket.getMsgType() != static_cast<Byte>(MsgType::KEX_DH_REPLY)) {
@@ -115,13 +118,26 @@ ErrorCode SSHClient::performKEX() {
 
     const Bytes& replyPayload = dhReplyPacket.getPayload();
     
-    //size_t offset = 0;  // TODO: SET OFFSET
-    //serverHostKey.assign(replyPayload.begin() + offset, replyPayload.end());
-    //Bytes serverPublicKey(replyPayload.begin(), replyPayload.end());
-    // RSA server public key
-    // sshUtils.partnerRSAKey = ;
     crypto::ecdh::Point serverPublicKeyPoint(ecdh->getCurve());
-    Bytes serverExchangeHash;
+    serverPublicKeyPoint.x = bytesToNum(Bytes(
+        replyPayload.begin(),
+        replyPayload.begin() + 32
+    ));
+    serverPublicKeyPoint.y = bytesToNum(Bytes(
+        replyPayload.begin() + 32 + 1,
+        replyPayload.begin() + 32 * 2
+    ));
+
+    crypto::rsa::RSAKey serverRSAKey;
+    serverRSAKey.exp = bytesToNum(Bytes(
+        replyPayload.begin() + 32 * 2 + 1,
+        replyPayload.begin() + 32 * 3
+    ));
+    serverRSAKey.prime = bytesToNum(Bytes(
+        replyPayload.begin() + 32 * 3 + 1,
+        replyPayload.begin() + 32 * 4
+    ));
+    Bytes serverSignedHash(replyPayload.begin() + 32 * 4 + 1, replyPayload.end());
 
     std::cout << "Computing shared secret..." << std::endl;
     crypto::ecdh::Point sharedSecretPoint = ecdh->getPrivateKey() * serverPublicKeyPoint;
@@ -139,7 +155,8 @@ ErrorCode SSHClient::performKEX() {
     );
     
     // Verify exchange hashes
-    if (!std::equal(exchangeHash.begin(), exchangeHash.end(), serverExchangeHash.begin(), serverExchangeHash.end())) {
+    crypto::rsa::RSA rsa;
+    if (rsa.verifySignature(exchangeHash, serverSignedHash, serverRSAKey)) {
         std::cout << "Exchange hash invalid!" << std::endl;
         NetworkClient::disconnect();
         return ErrorCode::PROTOCOL_ERROR;
@@ -150,10 +167,12 @@ ErrorCode SSHClient::performKEX() {
         sshUtils.sessionId = exchangeHash;
 
     std::cout << "Deriving encryption keys..." << std::endl;
-    sshUtils.deriveKeys(numToBytes(sharedSecret), exchangeHash);
+    sshUtils.deriveKeys(numToBytes(sharedSecret), exchangeHash, "Client");
 
     std::cout << "Sending NEWKEYS..." << std::endl;
-    result = utils.sendTCPPacket(SSHPacket(static_cast<Byte>(MsgType::NEWKEYS)));
+    SSHPacket newKeys(static_cast<Byte>(MsgType::NEWKEYS));
+    newKeys.generatePadding();
+    result = utils.sendTCPPacket(newKeys);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to send NEWKEYS" << std::endl;
         NetworkClient::disconnect();
@@ -187,6 +206,7 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uin
     ErrorCode result = NetworkClient::connectTo(_hostName, _port, timeout_ms);
     if (result != ErrorCode::SUCCESS)
         return result;
+    sshUtils = SSHUtils(utils);
 
     if (serverProtocol.substr(0, 4) != "SSH-") {
         NetworkClient::disconnect();
@@ -202,22 +222,23 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uin
     // Verify socket state after key exchange
     int error = 0;
     socklen_t len = sizeof(error);
-    int retval = getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len);
+    int retval = getsockopt(*sockfd, SOL_SOCKET, SO_ERROR, &error, &len);
     if (retval != 0 || error != 0) {
         std::cout << "Socket error after key exchange: " << strerror(error) << std::endl;
         NetworkClient::disconnect();
         return ErrorCode::CONNECTION_FAILED;
     }
     std::cout << "Socket verified in good state after key exchange" << std::endl;
-
+    
     // Send service request for ssh-connection
     std::cout << "Sending service request..." << std::endl;
     SSHPacket serviceRequest(static_cast<Byte>(MsgType::SERVICE_REQUEST));
     std::string serviceName = "ssh-connection";
     Bytes serviceNameBytes(serviceName.begin(), serviceName.end());
     serviceRequest.setPayload(serviceNameBytes);
+    serviceRequest.generatePadding();
     
-    result = sendSSHPacket(serviceRequest);
+    result = sshUtils.sendSSHPacket(serviceRequest);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to send service request: " << static_cast<int>(result) << std::endl;
         return result;
@@ -226,7 +247,7 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uin
     // Wait for service accept
     std::cout << "Waiting for service accept..." << std::endl;
     SSHPacket serviceAccept;
-    result = recvSSHPacket(serviceAccept);
+    result = sshUtils.recvSSHPacket(serviceAccept);
     if (result != ErrorCode::SUCCESS) {
         std::cout << "Failed to receive service accept: " << static_cast<int>(result) << std::endl;
         return result;
@@ -237,84 +258,6 @@ ErrorCode SSHClient::connectTo(const std::string& _hostName, uint16_t _port, uin
     }
     std::cout << "Service request accepted" << std::endl;
 
-    return ErrorCode::SUCCESS;
-}
-
-ErrorCode SSHClient::recvSSHPacket(SSHPacket& packet, unsigned int timeout_ms) {
-    if (!encryptionEnabled)
-        return utils.recvTCPPacket(packet, timeout_ms); // TODO: Check packet sizes
-
-    Bytes encryptedLengthBytes(crypto::AES256::BLOCK_SIZE);
-    if (!utils.recvBytes(encryptedLengthBytes, encryptedLengthBytes.size(), timeout_ms))
-        return ErrorCode::TIMEOUT;
-
-    Bytes packetLengthBytes = sshUtils.decryptBytes(encryptedLengthBytes);
-    uint32_t packetLength =
-        (static_cast<uint32_t>(packetLengthBytes[0]) << 24) |
-        (static_cast<uint32_t>(packetLengthBytes[1]) << 16) |
-        (static_cast<uint32_t>(packetLengthBytes[2]) <<  8) |
-         static_cast<uint32_t>(packetLengthBytes[3]);
-
-    if (packetLength > SSHPacket::MAX_SIZE)
-        return ErrorCode::PROTOCOL_ERROR;
-
-    // Calculate remaining data to read (excluding the first block we already read)
-    size_t remainingEncryptedSize = packetLength - (crypto::AES256::BLOCK_SIZE - 4);
-    remainingEncryptedSize += crypto::HMACSHA256::DIGEST_SIZE; // Add MAC size
-    
-    Bytes packetData(remainingEncryptedSize);
-    if (!utils.recvBytes(packetData, packetData.size(), timeout_ms))
-        return ErrorCode::TIMEOUT;
-    
-    Bytes mac(packetData.end() - crypto::HMACSHA256::DIGEST_SIZE, packetData.end());
-    packetData.resize(packetData.size() - crypto::HMACSHA256::DIGEST_SIZE);
-
-    Bytes encryptedPayload;
-    encryptedPayload.insert(encryptedPayload.end(), encryptedLengthBytes.begin(), encryptedLengthBytes.begin());
-    encryptedPayload.insert(encryptedPayload.end(), packetData.begin(), packetData.end());
-
-    Bytes payload = sshUtils.decryptBytes(encryptedPayload);
-    Bytes expectedMac = sshUtils.computeMAC(payload, false);
-    if (!std::equal(mac.begin(), mac.end(), expectedMac.begin(), expectedMac.end()))
-        return ErrorCode::DECRYPTION_ERROR;
-    
-    // Deserialize the packet
-    try {
-        packet.deserialize(payload);
-    } catch (const std::exception& e) {
-        return ErrorCode::PROTOCOL_ERROR;
-    }
-    
-    return ErrorCode::SUCCESS;
-}
-
-ErrorCode SSHClient::sendSSHPacket(SSHPacket& packet) {
-    if (!encryptionEnabled)
-        return utils.sendTCPPacket(packet);
-
-    std::cout << "Sending encrypted packet (type: " << static_cast<int>(packet.getMsgType()) << ")" << std::endl;
-
-    try {
-        Bytes data = packet.serialize();
-        Bytes mac = sshUtils.computeMAC(data, true);
-        std::cout << "MAC computed, size: " << mac.size() << " bytes" << std::endl;
-
-        Bytes encryptedData = sshUtils.encryptBytes(data);
-        std::cout << "Packet data encrypted, size: " << encryptedData.size() << " bytes" << std::endl;
-        encryptedData.insert(encryptedData.end(), mac.begin(), mac.end());
-
-        size_t bytesSent = send(sockfd, encryptedData.data(), encryptedData.size(), 0);
-        if (bytesSent < 0 || bytesSent != encryptedData.size()) {
-            std::cout << "Failed to send encrypted data, error: " << strerror(errno) << std::endl;
-            return ErrorCode::PROTOCOL_ERROR;
-        }
-
-        std::cout << "Successfully sent " << bytesSent << " bytes" << std::endl;
-    } catch (const std::exception& e) {
-        std::cout << "Exception during send: " << e.what() << std::endl;
-        return ErrorCode::PROTOCOL_ERROR;
-    }
-    
     return ErrorCode::SUCCESS;
 }
     
