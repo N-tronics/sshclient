@@ -84,7 +84,13 @@ void runDemoClient(std::string host = "127.0.0.1", uint32_t port = 2222) {
         return;
     }
 
-    std::cout << "Connected to server" << std::endl;
+    std::cout << "Connected securely to server" << std::endl << std::endl;
+    for (int _ = 0; _ < 5; _++)
+        std::cout << "*";
+    std::cout << "ENCRYPTED SESSION";
+    for (int _ = 0; _ < 5; _++)
+        std::cout << "*";
+    std::cout << std::endl;
 
     SSHPacket packet(1);
     std::string msg = "Hello from SSH Client";
@@ -105,37 +111,38 @@ void runDemoClient(std::string host = "127.0.0.1", uint32_t port = 2222) {
     std::cout << "recvd : " << replyMsg << std::endl;
 
     client.disconnect();
+    std::cout << std::endl;
+    for (int _ = 0; _ < 27; _++)
+        std::cout << "*";
+    std::cout << std::endl;
     std::cout << "Disconnected from server" << std::endl;
 }
 
 void runDemoServer() {
     std::thread serverThread([] () {
-        std::cout << "Starting ssh server on port 2222..." << std::endl;
+        std::cout << "Starting SSH server on port 2222..." << std::endl;
         SSHServer server;
         server.setServerProtocol("SSH-SERVER");
         server.setSSHClientHandler([](SSHSession& session) {
-            std::cout << "Client Connected from " << session.getClientAddress() << std::endl;
-            std::cout << "Client protocol: " << session.getClientProtocol() << std::endl;
-            
+            std::cout << "Waiting for message from client...";
             SSHPacket clientMsgPacket;
             if (session.sshUtils.recvSSHPacket(clientMsgPacket) != ErrorCode::SUCCESS) {
-                std::cout << "Couldn't recv client packet" << std::endl;
+                std::cout << std::endl <<"Couldn't recv client packet" << std::endl;
                 return; 
             }
+            std::cout << "done" << std::endl;
             std::string clientMsg(clientMsgPacket.getPayload().begin(), clientMsgPacket.getPayload().end());
-            std::cout << "Recvd msg: " << clientMsg << std::endl;
+            std::cout << "Received message: " << clientMsg << std::endl << std::endl;
             
+            std::cout << "Sending reply...";
             SSHPacket replyPacket(static_cast<Byte>(MsgType::IGNORE));
-            std::string reply = "Recvd ur msg: " + clientMsg;
+            std::string reply = "Received message: " + clientMsg;
             replyPacket.setPayload(Bytes(reply.begin(), reply.end()));
             if (session.sshUtils.sendSSHPacket(replyPacket) != ErrorCode::SUCCESS) {
-                std::cout << "Couldn't send reply msg" << std::endl;
+                std::cout << std::endl << "Couldn't send reply msg" << std::endl;
                 return;
             }
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-                
-            std::cout << "Client session has ended" << std::endl;
-            return;
+            std::cout << "done" << std::endl << std::endl;
         });
         server.startSSH(2222);
         std::cout << "Server started. Press Enter to stop..." << std::endl;

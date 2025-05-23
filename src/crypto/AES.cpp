@@ -5,7 +5,6 @@
 namespace crypto {
 
 AES256::AES256(const Bytes& key) {
-    std::cout << key.size() << std::endl;
     if (key.size() != KEY_SIZE) {
         throw std::invalid_argument("AES-256 key must be 32 bytes");
     }
@@ -142,7 +141,6 @@ Bytes AES256CBC::decryptBlock(const Bytes& cipherBlock) {
     m_aes.decryptBlock(cipherBlock, plaintext);
     for (size_t i = 0; i < AES256::BLOCK_SIZE; i++)
         plaintext[i] ^= m_iv[i];
-    std::cout << "Plain text: "; printBytes(std::cout, plaintext); std::cout << std::endl;
     return plaintext;
 }
 

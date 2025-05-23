@@ -4,10 +4,19 @@
 #include <fstream>
 #include <boost/multiprecision/cpp_int.hpp>
 
-void printBytes(std::ostream& stream, const Bytes& bytes) {
+void printBytes(std::ostream& stream, const Bytes& bytes, bool shorten) {
+    if (bytes.size() == 0) return;
     stream << "[" << bytes.size() << "]: ";
-    for (Byte b : bytes)
-        stream << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
+    if (shorten) {
+        for (size_t i = 0 ; i < 4; i++)
+            stream << std::hex << ((bytes[i] & 0xF0) >> 4) << (bytes[i] & 0x0F);
+        stream << std::dec << "..[" << bytes.size() - 8 << "].."; 
+        for (size_t i = bytes.size() - 4; i < bytes.size(); i++)
+            stream << std::hex << ((bytes[i] & 0xF0) >> 4) << (bytes[i] & 0x0F);
+    } else {
+        for (Byte b : bytes)
+            stream << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
+    }
     stream << std::dec;
 }
 

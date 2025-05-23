@@ -8,26 +8,30 @@ SSHServer::~SSHServer() {
 }
 
 void SSHServer::handleClientConnection(ClientSession& _session) {
-    std::cout << "Starting KEX with client..." << std::endl;
+    if (_session.getClientProtocol().substr(0, 4) != "SSH-") {
+        std::cout << "Connected client does not follow SSH protocol" << std::endl;
+        return;
+    }
+    std::cout << std::endl << "Starting KEX with client..." << std::endl;
 
     SSHSession session(_session);
     if (performKEX(session) != ErrorCode::SUCCESS) {
         std::cout << "KEX Failed! Couldn't recv client's KEXINIT." << std::endl;
         return;
     }
-    std::cout << "KEX Completed successfully!" << std::endl;
+    std::cout << "KEX Completed successfully!" << std::endl << std::endl;
 
     std::cout << "Waiting for service request..." << std::endl;
     SSHPacket serviceRequest;
     ErrorCode result = session.sshUtils.recvSSHPacket(serviceRequest);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to recv service request: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to recv service request: " << static_cast<int>(result) << std::endl;
         return;
     }
     if (serviceRequest.getMsgType() != static_cast<Byte>(MsgType::SERVICE_REQUEST)) {
-        std::cout << "Invalid message type recvd: " << serviceRequest.getMsgType() << std::endl;
+        std::cout << std::endl << "Invalid message type recvd: " << serviceRequest.getMsgType() << std::endl;
     }
-    std::cout << "Recvd service request" << std::endl;
+    std::cout << "received" << std::endl;
 
     std::cout << "Sending service accept..." << std::endl;
     SSHPacket serviceAccept(static_cast<Byte>(MsgType::SERVICE_ACCEPT));
@@ -38,39 +42,48 @@ void SSHServer::handleClientConnection(ClientSession& _session) {
 
     result = session.sshUtils.sendSSHPacket(serviceAccept);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to send service accept: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to send service accept: " << static_cast<int>(result) << std::endl;
         return;
     }
-    std::cout << "Service request sent." << std::endl;
+    std::cout << "done" << std::endl;
 
     if (sshClientHandler) {
-        std::cout << "Calling Client Handler... " << std::endl;
+        std::cout << std::endl << "Connected securely to client. Calling client handler..." << std::endl << std::endl;
+        for (int _ = 0; _ < 5; _++)
+            std::cout << "*";
+        std::cout << "ENCRYPTED SESSION";
+        for (int _ = 0; _ < 5; _++)
+            std::cout << "*";
+        std::cout << std::endl;
+        
         sshClientHandler(session);
+        
+        std::cout << std::endl;
+        for (int _ = 0; _ < 27; _++)
+            std::cout << "*";
+        std::cout << std::endl;
     }
 
-    std::cout << "Client Session Completed Successfully" << std::endl;
+    std::cout << "Client session completed successfully" << std::endl << std::endl;
 }
 
 ErrorCode SSHServer::performKEX(SSHSession& session) {
     SSHPacket clientKexInitPacket;
-    std::cout << "Waiting for KEXINIT packet..." << std::endl;
+    std::cout << "Waiting for KEXINIT packet...";
     ErrorCode result = session.sshUtils.recvTCPPacket(clientKexInitPacket);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to recv KEXINIT: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to recv KEXINIT: " << static_cast<int>(result) << std::endl;
         return result;
     }
     if (clientKexInitPacket.getMsgType() != static_cast<Byte>(MsgType::KEXINIT)) {
-        std::cout << "Invalid msg type recvd: " << clientKexInitPacket.getMsgType() << std::endl;
+        std::cout << std::endl << "Invalid msg type recvd: " << clientKexInitPacket.getMsgType() << std::endl;
         return ErrorCode::PROTOCOL_ERROR;
     }
-    std::cout << "Recvd client KEXINIT" << std::endl;
-    std::cout << "size of payload: " << clientKexInitPacket.getPayload().size() << std::endl;
+    std::cout << "received" << std::endl;
+    std::cout << "Client KEXINIT payload size: " << clientKexInitPacket.getPayload().size() <<  " bytes" << std::endl;
     Bytes clientKexInit(clientKexInitPacket.getPayload().begin(),clientKexInitPacket.getPayload().end());
     
-    std::cout << std::endl;
-    std::cout << "Client KEXINIT Payload: ";
-    printBytes(std::cout, clientKexInit);
-    std::cout << std::endl << std::endl;
+    std::cout << "Client KEXINIT Payload: "; printBytes(std::cout, clientKexInit); std::cout << std::endl;
 
     SSHPacket serverKexInitPacket(static_cast<Byte>(MsgType::KEXINIT));
     Bytes cookie = crypto::Random::generateBytes(16);
@@ -102,31 +115,29 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
     serverKexInitPacket.generatePadding();
     Bytes serverKexInit(kexInitPayload.begin(), kexInitPayload.end());
     
-    std::cout << std::endl;
-    std::cout << "Server KEXINIT Payload: ";
-    printBytes(std::cout, serverKexInit);
-    std::cout << std::endl << std::endl;
+    std::cout << "Server KEXINIT Payload: "; printBytes(std::cout, serverKexInit); std::cout << std::endl;
 
     // Sending Server's KEXINIT
-    std::cout << "Sending server KEXINIT" << std::endl;    
+    std::cout << "Sending server KEXINIT...";    
     result = session.sshUtils.sendTCPPacket(serverKexInitPacket);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to send KEXINIT: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to send KEXINIT: " << static_cast<int>(result) << std::endl;
         return result;
     }
+    std::cout << "done" << std::endl;
 
-    std::cout << "Waiting for client's KEX_DH_INIT..." << std::endl;
+    std::cout << std::endl << "Waiting for client's KEX_DH_INIT...";
     SSHPacket dhInitPacket;
     result = session.sshUtils.recvTCPPacket(dhInitPacket);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to recv KEX_DH_INIT: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to recv KEX_DH_INIT: " << static_cast<int>(result) << std::endl;
         return result;
     }
     if (dhInitPacket.getMsgType() != static_cast<Byte>(MsgType::KEX_DH_INIT)) {
-        std::cout << "Invalid msg type recvd: " << dhInitPacket.getMsgType() << std::endl;
+        std::cout << std::endl << "Invalid msg type recvd: " << dhInitPacket.getMsgType() << std::endl;
         return ErrorCode::PROTOCOL_ERROR;
     }
-    std::cout << "Client's KEX_DH_INIT recvd" << std::endl;
+    std::cout << "received" << std::endl;
     
     crypto::ecdh::ECDH ecdh("brainpoolP256r1");
     ecdh.generateKeys();
@@ -141,19 +152,17 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
         clientPublicKeyBytes.begin() + 32,
         clientPublicKeyBytes.end()
     ));
-
-    std::cout << "Computing shared secret..." << std::endl;
+    std::cout << "Client ECDH Public Key: "; printBytes(std::cout, numToBytes(clientPublicKeyPoint.x)); std::cout << std::endl;
+    std::cout << "Computing shared secret...";
     crypto::ecdh::Point sharedSecretPoint = ecdh.getPrivateKey() * clientPublicKeyPoint;
     num_t sharedSecret = sharedSecretPoint.x;
+    std::cout << "done" << std::endl;
 
-    std::cout << std::endl;
     std::cout << "ECDH Server Private Key: "; printBytes(std::cout, numToBytes(ecdh.getPrivateKey())); std::cout << std::endl;
     std::cout << "ECDH Server Public Key: "; printBytes(std::cout, numToBytes(ecdh.getPublicKey())); std::cout << std::endl;
-    std::cout << "ECDH Calculated shared secret: ";
-    printBytes(std::cout, numToBytes(sharedSecret));
-    std::cout << std::endl;
+    std::cout << "ECDH Calculated shared secret: "; printBytes(std::cout, numToBytes(sharedSecret)); std::cout << std::endl;
     
-    std::cout << "Computing exchange hash..." << std::endl;
+    std::cout << "Computing & signing exchange hash...";
     Bytes exchangeHash = session.sshUtils.computeExchangeHash(
         Bytes(session.getClientProtocol().begin(), session.getClientProtocol().end()),
         Bytes(session.getServerProtocol().begin(), session.getServerProtocol().end()),
@@ -163,10 +172,10 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
         numToBytes(ecdh.getPublicKey()),
         numToBytes(sharedSecret)
     );
-
-    std::cout << "Exchange Hash: ";
-    printBytes(std::cout, exchangeHash);
-    std::cout << std::endl;
+    Bytes signedHash = rsa.signBytes(exchangeHash);
+    std::cout << "done" << std::endl;
+    std::cout << "Exchange Hash: "; printBytes(std::cout, exchangeHash); std::cout << std::endl;
+    std::cout << "Signed Hash: "; printBytes(std::cout, signedHash); std::cout << std::endl;
     
     if (session.sshUtils.sessionID.empty())
         session.sshUtils.sessionID = exchangeHash;
@@ -176,54 +185,51 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
     Bytes publicKeyX = numToBytes(publicKeyPoint.x, 32), publicKeyY = numToBytes(publicKeyPoint.y, 32);
     dhReplyPayload.insert(dhReplyPayload.end(), publicKeyX.begin(), publicKeyX.end());
     dhReplyPayload.insert(dhReplyPayload.end(), publicKeyY.begin(), publicKeyY.end());
-
     dhReplyPayload.insert(dhReplyPayload.end(), serverRSAPublicKeyBytes.begin(), serverRSAPublicKeyBytes.end());
-    
-    Bytes signedHash = rsa.signBytes(exchangeHash);
     dhReplyPayload.insert(dhReplyPayload.end(), signedHash.begin(), signedHash.end());
 
-    std::cout << "Signed Hash: ";
-    printBytes(std::cout, signedHash);
-    std::cout << std::endl << std::endl;
-
-    std::cout << "Sending KEX_DH_REPLY..." << std::endl;
+    std::cout << "Sending KEX_DH_REPLY...";
     SSHPacket dhReply(static_cast<Byte>(MsgType::KEX_DH_REPLY));
     dhReply.setPayload(dhReplyPayload);
     dhReply.generatePadding();
     result = session.sshUtils.sendTCPPacket(dhReply);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to send KEX_DH_REPLY: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to send KEX_DH_REPLY: " << static_cast<int>(result) << std::endl;
         return result;
     }
+    std::cout << "done" << std::endl;
 
-    std::cout << "Deriving encryption keys..." << std::endl;
+    std::cout << std::endl << "Deriving encryption keys..." << std::endl;
     session.sshUtils.deriveKeys(numToBytes(sharedSecret), exchangeHash, "Server");
+    std::cout << "done" << std::endl << std::endl;
 
 
     SSHPacket newKeys(static_cast<Byte>(MsgType::NEWKEYS));
-    std::cout << "Sending NEWKEYS..." << std::endl;
+    std::cout << "Sending NEWKEYS...";
     result = session.sshUtils.sendTCPPacket(newKeys);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to send NEWKEYS: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to send NEWKEYS: " << static_cast<int>(result) << std::endl;
         return result;
     }
+    std::cout << "done" << std::endl;
     
     // Wait for client's NEWKEYS packet
-    std::cout << "Waiting for client's NEWKEYS..." << std::endl;
+    std::cout << "Waiting for client's NEWKEYS...";
     SSHPacket clientNewKeys;
     result = session.sshUtils.recvTCPPacket(clientNewKeys);
     if (result != ErrorCode::SUCCESS) {
-        std::cout << "Failed to receive NEWKEYS: " << static_cast<int>(result) << std::endl;
+        std::cout << std::endl << "Failed to receive NEWKEYS: " << static_cast<int>(result) << std::endl;
         return result;
     }
     if (clientNewKeys.getMsgType() != static_cast<Byte>(MsgType::NEWKEYS)) {
-        std::cout << "Invalid message type received: " << clientNewKeys.getMsgType() << std::endl;
+        std::cout << std::endl << "Invalid message type received: " << clientNewKeys.getMsgType() << std::endl;
         return ErrorCode::PROTOCOL_ERROR;
     }
-    std::cout << "Received client NEWKEYS" << std::endl;
+    std::cout << "reeceived" << std::endl << std::endl;
 
-    std::cout << "Enabling Encryption..." << std::endl;
+    std::cout << "Enabling Encryption...";
     session.enableEncryption();
+    std::cout << "done" << std::endl;
     
     return ErrorCode::SUCCESS;
 }

@@ -44,10 +44,6 @@ bool NetUtils::recvBytes(Bytes& bytes, size_t length, uint32_t timeout_ms) const
 
 ErrorCode NetUtils::sendTCPPacket(const TCPPacket& packet) const {
     Bytes data = packet.serialize();
-    std::cout << "Packet Data: " << std::endl;
-    for (Byte b : data) 
-        std::cout << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    std::cout << std::endl << std::dec;
 
     size_t bytesSent = send(*sockfd, data.data(), data.size(), 0);
     if (bytesSent < 0 || bytesSent != data.size())
@@ -74,14 +70,10 @@ ErrorCode NetUtils::recvTCPPacket(TCPPacket& packet, uint32_t timeout_ms) const 
     if (!recvBytes(packetPayload, packetLength, timeout_ms)) {
         return ErrorCode::TIMEOUT;
     }
-    std::cout << "recvTCPPacket: " << packetPayload.size() << std::endl;
     packetData.insert(packetData.end(), packetPayload.begin(), packetPayload.end());
-    std::cout << "Packet Data: " << std::endl;
-    printBytes(std::cout, packetData); std::cout << std::endl;
 
     try {
         packet.deserialize(packetData);
-        std::cout << "recvTCPPacket: " << packet.getPayload().size() << std::endl;
     } catch (const std::exception& e) {
         return ErrorCode::PROTOCOL_ERROR;
     }

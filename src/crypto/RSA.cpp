@@ -47,21 +47,7 @@ Bytes RSA::signBytes(const Bytes& data) const {
 
 bool RSA::verifySignature(const Bytes& hash, const Bytes& signature, const RSAKey& pubKey) const {
     Bytes expectedHash = decryptBytes(signature, pubKey);
-    std::cout << "RSA::VerifySignature: "; printBytes(std::cout, expectedHash); std::cout << std::endl;
-    bool T = std::equal(expectedHash.begin(), expectedHash.end(), hash.begin(), hash.end());
-    bool t = true;
-    if (hash.size() != expectedHash.size())
-        t = false;
-    else {
-        for (size_t i = 0; i < hash.size(); i++) {
-            if (hash[i] != expectedHash[i]) {
-                t = false;
-                break;
-            }
-        }
-    }
-    std::cout << t << " " << T << std::endl;
-    return t;
+    return std::equal(expectedHash.begin(), expectedHash.end(), hash.begin(), hash.end());
 }
 
 } // namespace rsa
