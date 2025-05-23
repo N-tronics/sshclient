@@ -1,5 +1,6 @@
 #include <NetUtils.hpp>
 #include <cstring>
+#include <SocketUtils.hpp>
 #include <MathFns.hpp>
 
 void NetUtils::setSockfd(const std::shared_ptr<int>& _sockfd) {
