@@ -47,7 +47,7 @@ This will run a simple test that creates an unencrypted server and client, excha
 ### Server Mode
 
 ```bash
-./ssh_client_server server
+./sshctrl server
 ```
 
 This will start an SSH server on port 2222 and wait for client connections.
@@ -55,7 +55,7 @@ This will start an SSH server on port 2222 and wait for client connections.
 ### Client Mode
 
 ```bash
-./ssh_client_server client <host> <port>
+./sshctrl client <host> <port>
 ```
 
 This will connect to an SSH server at the specified host and port. If no host and port is given, it defaults to 127.0.0.1 on port 2222
