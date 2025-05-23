@@ -23,7 +23,7 @@ The project is structured around the following key components:
 
 ## Building the Project
 
-To build the project, you'll need CMake and a C++17 compliant compiler:
+To build the project, you'll need CMake and a C++20 compliant compiler:
 
 ```bash
 mkdir build
