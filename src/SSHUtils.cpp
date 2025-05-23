@@ -95,6 +95,13 @@ Bytes SSHUtils::decryptBytes(const Bytes& data) const {
     return aes->decrypt(data);
 }
 
+Bytes SSHUtils::decryptBlock(const Bytes& data) const {
+    if (!aes)
+        throw std::runtime_error("Encryption not initialized");
+    
+    return aes->decryptBlock(data);
+}
+
 Bytes SSHUtils::computeMAC(const Bytes& data, bool sending) const {
     if (integrityKey.empty()) {
         throw std::runtime_error("MAC key not initialized");
@@ -133,39 +140,45 @@ ErrorCode SSHUtils::recvSSHPacket(SSHPacket& packet, uint32_t timeout_ms) const 
     if (!recvBytes(encryptedLengthBytes, crypto::AES256::BLOCK_SIZE, timeout_ms))
         return ErrorCode::TIMEOUT;
 
-    std::cout << "Payload: "; printBytes(std::cout, encryptedLengthBytes); std::cout << std::endl;
-    Bytes packetLengthBytes = decryptBytes(encryptedLengthBytes);
+    std::cout << "Encrypted Length Bytes: "; printBytes(std::cout, encryptedLengthBytes); std::cout << std::endl;
+    Bytes packetLengthBytes = decryptBlock(encryptedLengthBytes);
     uint32_t packetLength =
         (static_cast<uint32_t>(packetLengthBytes[0]) << 24) |
         (static_cast<uint32_t>(packetLengthBytes[1]) << 16) |
         (static_cast<uint32_t>(packetLengthBytes[2]) <<  8) |
          static_cast<uint32_t>(packetLengthBytes[3]);
-
+    std::cout << "Encrypted packet length: " << packetLength << std::endl;
     if (packetLength > SSHPacket::MAX_SIZE)
         return ErrorCode::PROTOCOL_ERROR;
 
     // Calculate remaining data to read (excluding the first block we already read)
     size_t remainingEncryptedSize = packetLength - (crypto::AES256::BLOCK_SIZE - 4);
+    //packetLength += crypto::AES256::BLOCK_SIZE - ((remainingEncryptedSize + crypto::AES256::BLOCK_SIZE) % crypto::AES256::BLOCK_SIZE);
+    remainingEncryptedSize += crypto::AES256::BLOCK_SIZE - ((4 + packetLength) % crypto::AES256::BLOCK_SIZE);
     remainingEncryptedSize += crypto::HMACSHA256::DIGEST_SIZE; // Add MAC size
-    
-    Bytes packetData(remainingEncryptedSize);
-    if (!recvBytes(packetData, packetData.size(), timeout_ms))
+    std::cout << "Bytes left to read: " << remainingEncryptedSize << std::endl; 
+    Bytes packetData;
+    if (!recvBytes(packetData, remainingEncryptedSize, timeout_ms))
         return ErrorCode::TIMEOUT;
+    std::cout << "encrypted packet data with MAC: ", printBytes(std::cout, packetData); std::cout << std::endl;
     
     Bytes mac(packetData.end() - crypto::HMACSHA256::DIGEST_SIZE, packetData.end());
     packetData.resize(packetData.size() - crypto::HMACSHA256::DIGEST_SIZE);
 
-    Bytes encryptedPayload;
-    encryptedPayload.insert(encryptedPayload.end(), encryptedLengthBytes.begin(), encryptedLengthBytes.begin());
-    encryptedPayload.insert(encryptedPayload.end(), packetData.begin(), packetData.end());
-
-    Bytes payload = decryptBytes(encryptedPayload);
-    Bytes expectedMac = computeMAC(payload, false);
+    Bytes encryptedPacket = encryptedLengthBytes;
+    // encryptedPacket.reserve(crypto::AES256::BLOCK_SIZE + packetData.size());
+    std::cout << "Encrypted packet length: " << crypto::AES256::BLOCK_SIZE + packetData.size() << std::endl;
+    encryptedPacket.insert(encryptedPacket.begin() + crypto::AES256::BLOCK_SIZE, packetData.begin(), packetData.end());
+    
+    std::cout << "encrypted packet data without MAC: ", printBytes(std::cout, packetData); std::cout << std::endl;
+    std::cout << "encrypted packet: "; printBytes(std::cout , encryptedPacket); std::cout << std::endl;
+    Bytes decryptedPacket = decryptBytes(encryptedPacket);
+    Bytes expectedMac = computeMAC(decryptedPacket, false);
     if (!std::equal(mac.begin(), mac.end(), expectedMac.begin(), expectedMac.end()))
         return ErrorCode::DECRYPTION_ERROR;
     // Deserialize the packet
     try {
-        packet.deserialize(payload);
+        packet.deserialize(decryptedPacket);
     } catch (const std::exception& e) {
         return ErrorCode::PROTOCOL_ERROR;
     }

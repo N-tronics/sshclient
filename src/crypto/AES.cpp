@@ -65,8 +65,6 @@ AES256CBC::AES256CBC(const Bytes& key, const Bytes& iv) : m_aes(key) {
 // Encrypt data using CBC mode
 Bytes AES256CBC::encrypt(const Bytes& plaintext) const {
     // Pad plaintext to a multiple of the block size using PKCS#7 padding
-    std::cout << "Encryption Key: "; printBytes(std::cout, m_aes.m_key); std::cout << std::endl;
-    std::cout << "Encryption  IV: "; printBytes(std::cout, m_iv); std::cout << std::endl;
     Bytes paddedPlaintext = pkcs7Pad(plaintext, AES256::BLOCK_SIZE);
     
     // Initialize result vector
@@ -102,8 +100,6 @@ Bytes AES256CBC::encrypt(const Bytes& plaintext) const {
 // Decrypt data using CBC mode
 Bytes AES256CBC::decrypt(const Bytes& ciphertext) const {
     // Validate ciphertext length
-    std::cout << "Encryption Key: "; printBytes(std::cout, m_aes.m_key); std::cout << std::endl;
-    std::cout << "Encryption  IV: "; printBytes(std::cout, m_iv); std::cout << std::endl;
     if (ciphertext.size() % AES256::BLOCK_SIZE != 0) {
         throw std::invalid_argument("Ciphertext size must be a multiple of the block size");
     }
@@ -137,6 +133,17 @@ Bytes AES256CBC::decrypt(const Bytes& ciphertext) const {
     
     // Remove padding
     return pkcs7Unpad(plaintext);
+}
+
+Bytes AES256CBC::decryptBlock(const Bytes& cipherBlock) {
+    if (cipherBlock.size() != AES256::BLOCK_SIZE)
+        throw std::invalid_argument("Invalid block size");
+    Bytes plaintext;
+    m_aes.decryptBlock(cipherBlock, plaintext);
+    for (size_t i = 0; i < AES256::BLOCK_SIZE; i++)
+        plaintext[i] ^= m_iv[i];
+    std::cout << "Plain text: "; printBytes(std::cout, plaintext); std::cout << std::endl;
+    return plaintext;
 }
 
 // PKCS#7 padding

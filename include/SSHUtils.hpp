@@ -98,6 +98,7 @@ public:
 
     Bytes encryptBytes(const Bytes& data) const;
     Bytes decryptBytes(const Bytes& data) const;
+    Bytes decryptBlock(const Bytes& data) const;
     Bytes computeMAC(const Bytes& data, bool sending) const;
     
     ErrorCode recvSSHPacket(SSHPacket& packet, uint32_t timeout_ms = 5000) const;

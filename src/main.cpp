@@ -92,18 +92,35 @@ int main(int argc, char *argv[]) {
                 std::cout << "Recvd msg: " << clientMsg << std::endl;
 
                 SSHPacket replyPacket(static_cast<Byte>(MsgType::IGNORE));
-                std::string reply = "Recv ur msg";
+                std::string reply = "Recvd ur msg: " + clientMsg;
                 replyPacket.setPayload(Bytes(reply.begin(), reply.end()));
                 if (session.sshUtils.sendSSHPacket(replyPacket) != ErrorCode::SUCCESS) {
                     std::cout << "Couldn't send reply msg" << std::endl;
                     return 1;
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(1));
+                
+                // while (true) {
+                //     SSHPacket cmdPacket;
+                //     if (session.sshUtils.recvSSHPacket(cmdPacket) != ErrorCode::SUCCESS) {
+                //         std::cout << "Couldn't recv cmd packet" << std::endl;
+                //         return 1;
+                //     }
+                //     std::string clientMsg(cmdPacket.getPayload().begin(), cmdPacket.getPayload().end());
+                //     std::cout << "EXECUTING CMD: " << clientMsg << std::endl;
+                // }
+                
                 std::cout << "Client session has ended" << std::endl;
+                return 0;
             });
             server.startSSH(2222);
-            std::this_thread::sleep_for(std::chrono::seconds(20));
+            // std::this_thread::sleep_for(std::chrono::seconds(20));
+            // server.stop();
+            std::cout << "Server started. Press Enter to stop..." << std::endl;
+            std::cin.get();
+            std::cout << "Stopping server..." << std::endl;
             server.stop();
+            std::cout << "Server stopped" << std::endl;
         });
         std::this_thread::sleep_for(std::chrono::seconds(1));
         serverThread.join();
@@ -138,6 +155,20 @@ int main(int argc, char *argv[]) {
         std::string replyMsg(reply.getPayload().begin(), reply.getPayload().end());
         std::cout << "recvd : " << replyMsg << std::endl;
 
+        // while (true) {
+        //     std::string cmd;
+        //     std::getline(std::cin, cmd);
+        //     if (cmd == "quit")
+        //         break;
+
+        //     SSHPacket cmdPacket(1);
+        //     cmdPacket.setPayload(Bytes(cmd.begin(), cmd.end()));
+        //     res = client.sshUtils.sendSSHPacket(cmdPacket);
+        //     if (res != ErrorCode::SUCCESS) {
+        //         std::cout << "Couldnt send packet" << std::endl;
+        //         return 1;
+        //     }
+        // }
         client.disconnect();
         std::cout << "Disconnected from server" << std::endl;
     }

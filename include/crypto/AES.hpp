@@ -34,6 +34,7 @@ public:
     Bytes encrypt(const Bytes& plaintext) const;    
     // Decrypt data using CBC mode
     Bytes decrypt(const Bytes& ciphertext) const;
+    Bytes decryptBlock(const Bytes& cipherBlock);
 private:
     // PKCS#7 padding
     static Bytes pkcs7Pad(const Bytes& data, size_t blockSize);
