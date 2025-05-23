@@ -3,19 +3,11 @@
 #include <Crypto.hpp>
 #include <TypeDefs.hpp>
 #include <MathFns.hpp>
-#include <string>
-#include <iostream>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/wait.h>
-#include <cstring>
-#include <poll.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <NetworkClient.hpp>
+#include <SocketUtils.hpp>
+#include <string>
+#include <cstring>
+#include <iostream>
 
 namespace ssh {
 

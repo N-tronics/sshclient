@@ -165,6 +165,7 @@ void printUsage() {
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printUsage();
+        return 1;
     }
     std::string mode = argv[1];
     if (mode == "demo" && argc == 3) {

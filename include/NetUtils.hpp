@@ -2,16 +2,10 @@
 
 #include <TypeDefs.hpp>
 #include <TCPPacket.hpp>
+#include <SocketUtils.hpp>
 #include <string>
 #include <memory>
 #include <stdexcept>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <fcntl.h>
-#include <poll.h>
 #include <iostream>
 
 enum class ErrorCode : int {
