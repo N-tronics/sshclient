@@ -1,6 +1,10 @@
 #pragma once
 
 #include <TypeDefs.hpp>
+#include <iostream>
+#include <fstream>
+
+void printBytes(std::ostream& stream, const Bytes& bytes);
 
 Bytes numToBytes(num_t n, size_t bytes = 32);
 num_t bytesToNum(const Bytes& bytes);

@@ -77,7 +77,7 @@ public:
     Bytes encryptionIV;
     Bytes partnerRSAKey;
     Bytes integrityKey;
-    Bytes sessionId;
+    Bytes sessionID;
 
     std::unique_ptr<crypto::AES256CBC> aes;
 

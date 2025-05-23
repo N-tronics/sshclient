@@ -1,6 +1,15 @@
 #include <MathFns.hpp>
 #include <TypeDefs.hpp>
+#include <iostream>
+#include <fstream>
 #include <boost/multiprecision/cpp_int.hpp>
+
+void printBytes(std::ostream& stream, const Bytes& bytes) {
+    stream << "[" << bytes.size() << "]: ";
+    for (Byte b : bytes)
+        stream << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
+    stream << std::dec;
+}
 
 Bytes numToBytes(num_t n, size_t bytes) {
     Bytes num;

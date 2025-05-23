@@ -19,7 +19,7 @@ private:
 public:
     RSA() {}
     
-    void generateKeyPair(size_t keySize = 256);
+    void generateKeyPair(size_t keySize = 1024);
     RSAKey getPublicKey() const;
     RSAKey getPrivateKey() const;
     

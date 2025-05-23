@@ -15,6 +15,7 @@ public:
     void encryptBlock(const Bytes& plaintext, Bytes& ciphertext) const;    
     // Decrypt a single block
     void decryptBlock(const Bytes& ciphertext, Bytes& plaintext) const;    
+    Bytes m_key;
 private:
     // Simple encryption function for demonstration purposes only
     // NOT SECURE - DO NOT USE IN PRODUCTION
@@ -22,7 +23,6 @@ private:
     // Simple decryption function for demonstration purposes only
     // NOT SECURE - DO NOT USE IN PRODUCTION
     void simpleDecrypt(const Bytes& ciphertext, Bytes& plaintext) const;    
-    Bytes m_key;
 };
 
 

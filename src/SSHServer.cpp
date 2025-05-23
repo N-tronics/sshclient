@@ -64,7 +64,13 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
         return ErrorCode::PROTOCOL_ERROR;
     }
     std::cout << "Recvd client KEXINIT" << std::endl;
-    Bytes clientKexInit = clientKexInitPacket.getPayload();
+    std::cout << "size of payload: " << clientKexInitPacket.getPayload().size() << std::endl;
+    Bytes clientKexInit(clientKexInitPacket.getPayload().begin(),clientKexInitPacket.getPayload().end());
+    
+    std::cout << std::endl;
+    std::cout << "Client KEXINIT Payload: ";
+    printBytes(std::cout, clientKexInit);
+    std::cout << std::endl << std::endl;
 
     SSHPacket serverKexInitPacket(static_cast<Byte>(MsgType::KEXINIT));
     Bytes cookie = crypto::Random::generateBytes(16);
@@ -94,7 +100,12 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
     }
     serverKexInitPacket.setPayload(kexInitPayload);
     serverKexInitPacket.generatePadding();
-    Bytes serverKexInit = kexInitPayload;
+    Bytes serverKexInit(kexInitPayload.begin(), kexInitPayload.end());
+    
+    std::cout << std::endl;
+    std::cout << "Server KEXINIT Payload: ";
+    printBytes(std::cout, serverKexInit);
+    std::cout << std::endl << std::endl;
 
     // Sending Server's KEXINIT
     std::cout << "Sending server KEXINIT" << std::endl;    
@@ -127,13 +138,20 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
         clientPublicKeyBytes.begin() + 32
     ));
     clientPublicKeyPoint.y = bytesToNum(Bytes(
-        clientPublicKeyBytes.begin() + 33,
+        clientPublicKeyBytes.begin() + 32,
         clientPublicKeyBytes.end()
     ));
 
     std::cout << "Computing shared secret..." << std::endl;
     crypto::ecdh::Point sharedSecretPoint = ecdh.getPrivateKey() * clientPublicKeyPoint;
     num_t sharedSecret = sharedSecretPoint.x;
+
+    std::cout << std::endl;
+    std::cout << "ECDH Server Private Key: "; printBytes(std::cout, numToBytes(ecdh.getPrivateKey())); std::cout << std::endl;
+    std::cout << "ECDH Server Public Key: "; printBytes(std::cout, numToBytes(ecdh.getPublicKey())); std::cout << std::endl;
+    std::cout << "ECDH Calculated shared secret: ";
+    printBytes(std::cout, numToBytes(sharedSecret));
+    std::cout << std::endl;
     
     std::cout << "Computing exchange hash..." << std::endl;
     Bytes exchangeHash = session.sshUtils.computeExchangeHash(
@@ -145,8 +163,13 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
         numToBytes(ecdh.getPublicKey()),
         numToBytes(sharedSecret)
     );
-    if (session.getSessionID().empty())
-        session.setSessionID(exchangeHash);
+
+    std::cout << "Exchange Hash: ";
+    printBytes(std::cout, exchangeHash);
+    std::cout << std::endl;
+    
+    if (session.sshUtils.sessionID.empty())
+        session.sshUtils.sessionID = exchangeHash;
     
     Bytes dhReplyPayload;
     crypto::ecdh::Point publicKeyPoint = ecdh.getPublicKeyPoint();
@@ -158,6 +181,10 @@ ErrorCode SSHServer::performKEX(SSHSession& session) {
     
     Bytes signedHash = rsa.signBytes(exchangeHash);
     dhReplyPayload.insert(dhReplyPayload.end(), signedHash.begin(), signedHash.end());
+
+    std::cout << "Signed Hash: ";
+    printBytes(std::cout, signedHash);
+    std::cout << std::endl << std::endl;
 
     std::cout << "Sending KEX_DH_REPLY..." << std::endl;
     SSHPacket dhReply(static_cast<Byte>(MsgType::KEX_DH_REPLY));
@@ -208,12 +235,12 @@ ErrorCode SSHServer::startSSH(uint16_t _port, const std::string& _bindAddress) {
     
     rsa.generateKeyPair();
     crypto::rsa::RSAKey publicKey = rsa.getPublicKey();
-    std::cout << "RSA Key exp: " << publicKey.exp << std::endl;
-    std::cout << "RSA Key prime: " << publicKey.prime << std::endl;
+    std::cout << "RSA Key public exp: "; printBytes(std::cout, numToBytes(publicKey.exp)); std::cout << std::endl;
+    std::cout << "RSA Key prime: "; printBytes(std::cout, numToBytes(publicKey.prime)); std::cout << std::endl;
     
     Bytes expBytes = numToBytes(publicKey.exp);
     Bytes primeBytes = numToBytes(publicKey.prime);
-    
+
     serverRSAPublicKeyBytes.insert(serverRSAPublicKeyBytes.begin(), expBytes.begin(), expBytes.end());
     serverRSAPublicKeyBytes.insert(serverRSAPublicKeyBytes.end(), primeBytes.begin(), primeBytes.end());
     

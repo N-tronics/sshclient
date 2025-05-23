@@ -15,10 +15,6 @@ SSHSession::~SSHSession() {
     disconnect();
 }
 
-void SSHSession::setSessionID(const Bytes& _sessionID) { sessionID = _sessionID; }
-
 void SSHSession::enableEncryption() { encryptionEnabled = true; }
-
-const Bytes& SSHSession::getSessionID() const { return sessionID; }
 
 } // namespace ssh

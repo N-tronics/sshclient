@@ -1,9 +1,11 @@
 #include <Crypto.hpp>
 #include <TypeDefs.hpp>
+#include <MathFns.hpp>
 
 namespace crypto {
 
 AES256::AES256(const Bytes& key) {
+    std::cout << key.size() << std::endl;
     if (key.size() != KEY_SIZE) {
         throw std::invalid_argument("AES-256 key must be 32 bytes");
     }
@@ -63,6 +65,8 @@ AES256CBC::AES256CBC(const Bytes& key, const Bytes& iv) : m_aes(key) {
 // Encrypt data using CBC mode
 Bytes AES256CBC::encrypt(const Bytes& plaintext) const {
     // Pad plaintext to a multiple of the block size using PKCS#7 padding
+    std::cout << "Encryption Key: "; printBytes(std::cout, m_aes.m_key); std::cout << std::endl;
+    std::cout << "Encryption  IV: "; printBytes(std::cout, m_iv); std::cout << std::endl;
     Bytes paddedPlaintext = pkcs7Pad(plaintext, AES256::BLOCK_SIZE);
     
     // Initialize result vector
@@ -98,6 +102,8 @@ Bytes AES256CBC::encrypt(const Bytes& plaintext) const {
 // Decrypt data using CBC mode
 Bytes AES256CBC::decrypt(const Bytes& ciphertext) const {
     // Validate ciphertext length
+    std::cout << "Encryption Key: "; printBytes(std::cout, m_aes.m_key); std::cout << std::endl;
+    std::cout << "Encryption  IV: "; printBytes(std::cout, m_iv); std::cout << std::endl;
     if (ciphertext.size() % AES256::BLOCK_SIZE != 0) {
         throw std::invalid_argument("Ciphertext size must be a multiple of the block size");
     }

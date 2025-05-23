@@ -1,6 +1,7 @@
 #include <SSHUtils.hpp>
 #include <iostream>
 #include <fstream>
+#include <MathFns.hpp>
 
 namespace ssh {
 
@@ -36,26 +37,11 @@ void SSHUtils::deriveKeys(const Bytes& sharedSecret, const Bytes& exchangeHash, 
     encryptionKey = deriveKeyData(sharedSecret, exchangeHash, 'C', crypto::AES256::KEY_SIZE);
     encryptionIV = deriveKeyData(sharedSecret, exchangeHash, 'A', crypto::AES256::BLOCK_SIZE);
     integrityKey = deriveKeyData(sharedSecret, exchangeHash, 'E', crypto::HMACSHA256::DIGEST_SIZE);
-
-    std::ofstream keyFile(id + "keyfile.txt");
-    keyFile << "Shared Secret: ";
-    for (Byte b : sharedSecret) 
-        keyFile << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    keyFile << "\nExchange hash:";
-    for (Byte b : exchangeHash) 
-        keyFile << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    keyFile << "\nKey: ";
-    for (Byte b : encryptionKey) 
-        keyFile << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    keyFile << "\nIV: ";
-    for (Byte b : encryptionIV) 
-        keyFile << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    keyFile << "\nIntegrity Key: ";
-    for (Byte b : encryptionIV) 
-        keyFile << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    keyFile << "\n";
-
-    keyFile.close();
+    
+    std::cout << "AES Encryption Key: "; printBytes(std::cout, encryptionKey); std::cout << std::endl;
+    std::cout << "AES Encryption  IV: "; printBytes(std::cout, encryptionIV); std::cout << std::endl;
+    std::cout << "HMAC Integrity Key: "; printBytes(std::cout, integrityKey); std::cout << std::endl;
+    std::cout << std::endl;
 
     try {
         aes = std::make_unique<crypto::AES256CBC>(encryptionKey, encryptionIV);
@@ -73,7 +59,8 @@ Bytes SSHUtils::deriveKeyData(const Bytes& sharedSecret, const Bytes& exchangeHa
     input.insert(input.end(), sharedSecret.begin(), sharedSecret.end());
     input.insert(input.end(), exchangeHash.begin(), exchangeHash.end());
     input.push_back(static_cast<Byte>(purpose));
-    input.insert(input.end(), sessionId.begin(), sessionId.end());
+    input.insert(input.end(), sessionID.begin(), sessionID.end());
+    std::cout << "deriveKeyData: sessionID: "; printBytes(std::cout, sessionID); std::cout << std::endl;
 
     Bytes result = crypto::SHA256::computeHash(input);
     while (result.size() < keySize) {
@@ -142,10 +129,11 @@ Bytes SSHUtils::computeMAC(const Bytes& data, bool sending) const {
 }
 
 ErrorCode SSHUtils::recvSSHPacket(SSHPacket& packet, uint32_t timeout_ms) const {
-    Bytes encryptedLengthBytes(crypto::AES256::BLOCK_SIZE);
-    if (!recvBytes(encryptedLengthBytes, encryptedLengthBytes.size(), timeout_ms))
+    Bytes encryptedLengthBytes;
+    if (!recvBytes(encryptedLengthBytes, crypto::AES256::BLOCK_SIZE, timeout_ms))
         return ErrorCode::TIMEOUT;
 
+    std::cout << "Payload: "; printBytes(std::cout, encryptedLengthBytes); std::cout << std::endl;
     Bytes packetLengthBytes = decryptBytes(encryptedLengthBytes);
     uint32_t packetLength =
         (static_cast<uint32_t>(packetLengthBytes[0]) << 24) |
@@ -175,7 +163,6 @@ ErrorCode SSHUtils::recvSSHPacket(SSHPacket& packet, uint32_t timeout_ms) const 
     Bytes expectedMac = computeMAC(payload, false);
     if (!std::equal(mac.begin(), mac.end(), expectedMac.begin(), expectedMac.end()))
         return ErrorCode::DECRYPTION_ERROR;
-    
     // Deserialize the packet
     try {
         packet.deserialize(payload);
@@ -191,10 +178,7 @@ ErrorCode SSHUtils::sendSSHPacket(SSHPacket& packet) const {
 
     try {
         Bytes data = packet.serialize();
-    std::cout << "Packet Data: " << std::endl;
-    for (Byte b : data) 
-        std::cout << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    std::cout << std::endl << std::dec;
+    std::cout << "Packet Data: "; printBytes(std::cout, data); std::cout << std::endl;
         Bytes mac = computeMAC(data, true);
         std::cout << "MAC computed, size: " << mac.size() << " bytes" << std::endl;
 
@@ -203,10 +187,7 @@ ErrorCode SSHUtils::sendSSHPacket(SSHPacket& packet) const {
         encryptedData.insert(encryptedData.end(), mac.begin(), mac.end());
     
     std::cout << "Packet data encrypted size after mac addition: " << encryptedData.size() << std::endl;
-    std::cout << "Packet Encrypted Data: " << std::endl;
-    for (Byte b : encryptedData) 
-        std::cout << std::hex << ((b & 0xF0) >> 4) << (b & 0x0F);
-    std::cout << std::endl << std::dec;
+    std::cout << "Packet Encrypted Data: " << std::endl; printBytes(std::cout, encryptedData); std::cout << std::endl;
         
         size_t bytesSent = send(*sockfd, encryptedData.data(), encryptedData.size(), 0);
         if (bytesSent < 0 || bytesSent != encryptedData.size()) {

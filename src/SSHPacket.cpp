@@ -1,5 +1,6 @@
 #include <SSHPacket.hpp>
 #include <Crypto.hpp>
+#include <MathFns.hpp>
 
 Byte SSHPacket::getMsgType() const { return msgType; }
 void SSHPacket::setMsgType(Byte _msgType) { msgType = _msgType; }
@@ -63,8 +64,12 @@ void SSHPacket::deserialize(const Bytes& data) {
     msgType = data[5];
 
     size_t payloadLength = packetLength - paddingLength - 2;
-    payload.resize(payloadLength);
-    payload.insert(payload.begin(), data.begin() + 6, data.end() + 6 + payloadLength);
+    //payload.resize(payloadLength);
+    std::cout << "SSHPacket::deserialize " << payload.size() << " " << payloadLength << std::endl;
+    payload = Bytes(data.begin() + 6, data.begin() + 6 + payloadLength);
+
+    std::cout << "SSHPacket::deserialize " << payload.size() << " " << payloadLength << std::endl;
+    std::cout << "SSHPacket::Deserialize payload: "; printBytes(std::cout, payload); std::cout << std::endl;
 
     padding.resize(paddingLength);
     padding.insert(padding.begin(), data.begin() + 6 + payloadLength, data.begin() + 6 + payloadLength + paddingLength);

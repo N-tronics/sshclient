@@ -81,20 +81,27 @@ ErrorCode SSHClient::performKEX() {
     
     serverKexInit = serverKexInitPacket.getPayload();
     clientKexInit = kexInitPacket.getPayload();
+    
+    std::cout << std::endl;
+    std::cout << "Client KEXINIT Payload: "; printBytes(std::cout, clientKexInit); std::cout << std::endl;
+    std::cout << "Server KEXINIT Payload: "; printBytes(std::cout, serverKexInit); std::cout << std::endl;
 
     std::cout << "Generating ECDH Key pair..." << std::endl;
     // ECDH
-    std::unique_ptr<crypto::ecdh::ECDH> ecdh = std::make_unique<crypto::ecdh::ECDH>("brainpoolP256r1");
-    ecdh->generateKeys();
+    crypto::ecdh::ECDH ecdh("brainpoolP256r1");
+    ecdh.generateKeys();
     
     SSHPacket dhInitPacket(static_cast<Byte>(MsgType::KEX_DH_INIT));
     Bytes dhInitPayload;
-    crypto::ecdh::Point publicKeyPoint = ecdh->getPublicKeyPoint();
+    crypto::ecdh::Point publicKeyPoint = ecdh.getPublicKeyPoint();
     Bytes publicKeyX = numToBytes(publicKeyPoint.x, 32), publicKeyY = numToBytes(publicKeyPoint.y, 32);
     dhInitPayload.insert(dhInitPayload.end(), publicKeyX.begin(), publicKeyX.end());
     dhInitPayload.insert(dhInitPayload.end(), publicKeyY.begin(), publicKeyY.end());
     dhInitPacket.setPayload(dhInitPayload);
     dhInitPacket.generatePadding();
+
+    std::cout << "ECDH Client Private key: "; printBytes(std::cout, numToBytes(ecdh.getPrivateKey())); std::cout << std::endl;
+    std::cout << "ECDH Client Public  key: "; printBytes(std::cout, numToBytes(ecdh.getPublicKey())); std::cout << std::endl;
     
     std::cout << "Sending KEX_DH_INIT..." << std::endl;
     result = utils.sendTCPPacket(dhInitPacket);
@@ -118,29 +125,32 @@ ErrorCode SSHClient::performKEX() {
 
     const Bytes& replyPayload = dhReplyPacket.getPayload();
     
-    crypto::ecdh::Point serverPublicKeyPoint(ecdh->getCurve());
+    crypto::ecdh::Point serverPublicKeyPoint(ecdh.getCurve());
     serverPublicKeyPoint.x = bytesToNum(Bytes(
         replyPayload.begin(),
         replyPayload.begin() + 32
     ));
     serverPublicKeyPoint.y = bytesToNum(Bytes(
-        replyPayload.begin() + 32 + 1,
+        replyPayload.begin() + 32,
         replyPayload.begin() + 32 * 2
     ));
 
     crypto::rsa::RSAKey serverRSAKey;
     serverRSAKey.exp = bytesToNum(Bytes(
-        replyPayload.begin() + 32 * 2 + 1,
-        replyPayload.begin() + 32 * 3
+        replyPayload.begin() + 32 * 2,
+        replyPayload.begin() + 32 * 2 + 128
     ));
     serverRSAKey.prime = bytesToNum(Bytes(
-        replyPayload.begin() + 32 * 3 + 1,
-        replyPayload.begin() + 32 * 4
+        replyPayload.begin() + 32 * 2 + 128,
+        replyPayload.begin() + 32 * 2 + 128 + 128
     ));
-    Bytes serverSignedHash(replyPayload.begin() + 32 * 4 + 1, replyPayload.end());
+    Bytes serverSignedHash(replyPayload.begin() + 32 * 2 + 256, replyPayload.end());
+    std::cout << "server rsa exp: "; printBytes(std::cout, numToBytes(serverRSAKey.exp)); std::cout << std::endl;
+    std::cout << "server rsa prime: "; printBytes(std::cout, numToBytes(serverRSAKey.prime)); std::cout << std::endl;
+    std::cout << "server signed hash: "; printBytes(std::cout, serverSignedHash); std::cout << std::endl;
 
     std::cout << "Computing shared secret..." << std::endl;
-    crypto::ecdh::Point sharedSecretPoint = ecdh->getPrivateKey() * serverPublicKeyPoint;
+    crypto::ecdh::Point sharedSecretPoint = ecdh.getPrivateKey() * serverPublicKeyPoint;
     num_t sharedSecret = sharedSecretPoint.x;
 
     std::cout << "Computing exchange hash..." << std::endl;
@@ -149,22 +159,25 @@ ErrorCode SSHClient::performKEX() {
         Bytes(serverProtocol.begin(), serverProtocol.end()),
         clientKexInit,
         serverKexInit,
-        numToBytes(ecdh->getPublicKey()),
+        numToBytes(ecdh.getPublicKey()),
         numToBytes(serverPublicKeyPoint.x),
         numToBytes(sharedSecret)
     );
     
+    std::cout << "ECDH Client Shared secret: "; printBytes(std::cout, numToBytes(sharedSecret)); std::cout << std::endl;
+    std::cout << "Exchange Hash: "; printBytes(std::cout, exchangeHash); std::cout << std::endl;
+    
     // Verify exchange hashes
     crypto::rsa::RSA rsa;
-    if (rsa.verifySignature(exchangeHash, serverSignedHash, serverRSAKey)) {
+    if (!rsa.verifySignature(exchangeHash, serverSignedHash, serverRSAKey)) {
         std::cout << "Exchange hash invalid!" << std::endl;
         NetworkClient::disconnect();
         return ErrorCode::PROTOCOL_ERROR;
     }
     std::cout << "Exchange hash verified" << std::endl;
 
-    if (sshUtils.sessionId.empty())
-        sshUtils.sessionId = exchangeHash;
+    if (sshUtils.sessionID.empty())
+        sshUtils.sessionID = exchangeHash;
 
     std::cout << "Deriving encryption keys..." << std::endl;
     sshUtils.deriveKeys(numToBytes(sharedSecret), exchangeHash, "Client");
